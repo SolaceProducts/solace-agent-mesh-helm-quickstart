@@ -1,0 +1,92 @@
+replicaCount: 1
+
+config:
+  # Built-in agents configuration
+  agents:
+    - name: web_request
+      enabled: true
+    - name: global
+      enabled: true
+    - name: image_processing
+      enabled: false
+    - name: slack
+      enabled: false
+  
+  # Built-in services configuration
+  services:
+    - name: embedding
+      enabled: false
+  
+  # Directory configurations
+  configDirectory: configs
+  modulesDirectory: modules
+  overwriteDirectory: overwrite
+  envFile: .env
+  
+  # Build configuration
+  build:
+    buildDirectory: build
+    extractEnvVars: true
+    logLevelOverride: INFO
+    orchestratorInstanceCount: 5
+  
+  # Runtime configuration
+  runtime:
+    fileService:
+      type: volume
+      maxTimeToLive: 86400
+      expirationCheckInterval: 600
+      volume:
+        directory: /tmp/solace-agent-mesh
+      bucket:
+        bucketName: ""
+        endpointUrl: ""
+        boto3Config:
+          regionName: ""
+          awsAccessKeyId: ""
+          awsSecretAccessKey: ""
+      customModule:
+        modulePath: ""
+        config: {}
+serviceAccount:
+  name: solace-agent-mesh-agent-sa
+image:
+  repository:
+  tag:
+  pullPolicy: Always
+
+rollout:
+  rollingUpdate: {}
+  strategy: Recreate
+
+podSecurityContext:
+securityContext:
+nodeSelector: {}
+tolerations: []
+annotations: {}
+podAnnotations: {}
+podLabels: {}
+
+files: []
+environmentVariables: []
+
+datadog:
+  tags:
+
+service:
+  type: LoadBalancer
+  port: 5001
+  annotations: {}
+  dns:
+    enabled: false
+    hostname: ""
+    ttl: "300"
+
+resources:
+  sam:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 200m
+      memory: 768Mi

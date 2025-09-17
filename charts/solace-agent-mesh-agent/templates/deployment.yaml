@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sam.fullname" . }}
+  labels:
+    {{- include "sam.labels" . | nindent 4 }}
+  {{- include "sam.annotations" . | nindent 2 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sam.selectorLabels" . | nindent 6 }}
+  strategy:
+    {{- if eq .Values.rollout.strategy "RollingUpdate" }}
+    {{- with .Values.rollout.rollingUpdate }}
+    rollingUpdate:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- end }}
+    type: {{ .Values.rollout.strategy }}
+  template:
+    metadata:
+      annotations:
+        {{- include "sam.podAnnotations" . | nindent 8 }}
+      labels:
+        {{- include "sam.selectorLabels" . | nindent 8 }}
+        {{- include "sam.podLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: sam
+          {{- if and .Values.environmentVariables (gt (len .Values.environmentVariables) 0) }}
+          envFrom:
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-env-vars
+          {{- end }}
+          command: ["solace-agent-mesh", "run", "--system-env"]
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources.sam | nindent 12 }}
+          {{- end }}
+          ## If the application is consistently unavailable for 20 seconds, it is considered unhealthy and traffic is not sent to the pod
+          #readinessProbe:
+          #  httpGet:
+          #   path: /
+          #    port: webui
+          #    scheme: HTTPS
+          #  initialDelaySeconds: 15 # Give the app time to start before probing
+          #  successThreshold: 1
+          #  failureThreshold: 4
+          #  periodSeconds: 5
+          ## If the application is consistently down for 20 seconds it is restarted
+          #livenessProbe:
+          #  httpGet:
+          #    path: /
+          #    port: webui
+          #    scheme: HTTPS
+          #  initialDelaySeconds: 30 # Give the app time to start before probing
+          #  successThreshold: 1
+          #  failureThreshold: 4
+          #  periodSeconds: 5
+          volumeMounts:
+            - name: shared-storage
+              mountPath: /tmp/solace-agent-mesh
+            {{- if .Values.files }}
+            {{- range .Values.files }}
+            - name: {{ .name }}-volume
+              mountPath: {{ .path }}
+              subPath: {{ .subPath }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: shared-storage
+          emptyDir: {}
+        {{- if .Values.files }}
+        {{- range .Values.files }}
+        - name: {{ .name }}-volume
+          secret:
+            secretName: {{ include "sam.fullname" $ }}-{{ .name }}
+        {{- end }}
+        {{- end }}
