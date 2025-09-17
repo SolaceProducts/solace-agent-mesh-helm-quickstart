@@ -1,5 +1,7 @@
 # Solace Agent Mesh Helm Quickstart
-
+> :warning: This Helm chart is **not ready yet** for production use.
+> We are actively developing and testing this chart. Expect breaking changes and incomplete functionality.
+> Please check back later or follow the repository for updates.
 
 ## Install Solace Agent Mesh
 
