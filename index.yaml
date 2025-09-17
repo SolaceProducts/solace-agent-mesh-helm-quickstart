@@ -2,9 +2,9 @@ apiVersion: v1
 entries:
   solace-sam:
   - apiVersion: v2
-    created: "2025-09-17T17:10:03.111609101Z"
+    created: "2025-09-17T17:11:31.042296836Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
-    digest: 8632d1415c363efe7c79ea4a709d0829d3d2fbd14719a97a53b2da058bfcc950
+    digest: e9b61da350c98b15aa1d2cdc9eb9ba3157976ef2a36e226a0436a01f1bc67c19
     home: https://solace.cloud
     maintainers:
     - email: info@solace.com
@@ -14,4 +14,4 @@ entries:
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-sam-0.0.1.tgz
     version: 0.0.1
-generated: "2025-09-17T17:10:03.110381656Z"
+generated: "2025-09-17T17:11:31.041491286Z"
