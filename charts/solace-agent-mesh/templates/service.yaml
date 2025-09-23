@@ -20,7 +20,7 @@ spec:
   type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
     - port: 443
-      targetPort: webui
+      targetPort: 8443
       protocol: TCP
       name: webui
     - port: 5050
