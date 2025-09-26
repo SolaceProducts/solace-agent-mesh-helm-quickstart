@@ -52,23 +52,31 @@ config:
 serviceAccount:
   name: solace-agent-mesh-sa
 image:
-  repository:
-  tag:
+  repository: solace/solace-agent-mesh
+  tag: latest
   pullPolicy: Always
+  imagePullSecrets: []
 
 rollout:
   rollingUpdate: {}
   strategy: Recreate
 
 podSecurityContext:
+  fsGroup: 10002
+  runAsUser: 10001
 securityContext:
+  allowPrivilegeEscalation: false
 nodeSelector: {}
 tolerations: []
 annotations: {}
 podAnnotations: {}
 podLabels: {}
 
-files: []
+tls:
+  enabled: true
+  cert: ""
+  key: ""
+
 environmentVariables: []
 
 datadog:
@@ -94,38 +102,42 @@ resources:
 
 # SAM host info
 sam:
+  devMode: false
   hostname:
   webUiPort:
   callbackUrl:
+  namespace: default-namespace
   idpUrl:
-  tlsCertPath:
-  tlsKeyPath:
+  tlsCertPath: /app/certs/tls.crt
+  tlsKeyPath: /app/certs/tls.key
   tlsPassphrase:
+  sessionSecretKey: random-secret-key
+  sessionType: memory # memory or sql
+  webUIDatabaseUrl: postgresql+psycopg2://webui:webui@localhost:5432/webui
+  orchestratorDatabaseUrl: postgresql+psycopg2://orchestrator:orchestrator@localhost:5432/orchestrator
 
-# Solace A2A Login Service configuration
-solaceA2ALogin:
-  enabled: false
-  replicaCount: 1
-  image:
-    registry: ""
-    repository: solace-a2a-login
-    tag: latest
-    pullPolicy: Always
-  config:
-    - client_id: sam-admin
-      client_secret: admin
-      groups:
-        - admin
-    - client_id: sam-user
-      client_secret: password
-      groups:
-        - developer
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-  service:
-    port: 3000
+llm:
+  planningModel: openai/claude-3-7-sonnet
+  embeddingModel: openai/claude-3-7-sonnet
+  llmServiceEndpoint: https://llm.endpoint.com
+  llmServiceApiKey: llm-service-api-key
+
+solaceBroker:
+  url: wss://localhost:8443
+  vpn: default
+  username: admin
+  password: admin
+
+install-bundled-pgsql: false
+# postgresql:
+#   auth:
+#     database: gateway
+#     username: gateway
+#     password: password
+#   primary:
+#     service:
+#       port: 5432
+#   metrics:
+#     enabled: false
+#   persistence:
+#     enabled: false

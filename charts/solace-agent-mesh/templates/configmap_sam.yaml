@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: {{ include "sam.fullname" $ }}-config
+    labels:
+      {{- include "sam.labels" $ | nindent 4 }}
+data:
+    SOLACE_DEV_MODE: "{{ .Values.sam.devMode }}"
+    {{- if .Values.tls.enabled }}
+    SSL_VERIFY: "true"
+    SSL_CERTFILE: "/app/certs/tls.crt"
+    SSL_KEYFILE: "/app/certs/tls.key"
+    {{- else }}
+    SSL_VERIFY: "false"
+    {{- end }}
+    FASTAPI_PORT: "8000"
+    FASTAPI_HTTPS_PORT: "8443"
+    REST_API_SERVER_INPUT_ENDPOINT: "/api/v1/request"
+    WEBUI_ENABLED: "true"
+    FRONTEND_USE_AUTHORIZATION: "false"
+    FASTAPI_HOST: "0.0.0.0"
+    REST_API_SERVER_HOST: "0.0.0.0"
+    NAMESPACE: "{{ .Values.sam.namespace }}"
+    WEB_UI_SESSION_SERVICE_TYPE: "{{ .Values.sam.sessionType }}"
+    ORCHESTRATOR_SESSION_SERVICE_TYPE: "{{ .Values.sam.sessionType }}"

@@ -18,20 +18,19 @@ metadata:
     {{- end }}
 spec:
   type: {{ .Values.service.type | default "ClusterIP" }}
+  publishNotReadyAddresses: true
   ports:
     - port: 443
-      targetPort: 8443
+      targetPort: webui-tls
+      protocol: TCP
+      name: webui-tls
+    - port: 80
+      targetPort: webui
       protocol: TCP
       name: webui
     - port: 5050
       targetPort: auth
       protocol: TCP
       name: auth
-    {{- if .Values.solaceA2ALogin.enabled }}
-    - port: {{ .Values.solaceA2ALogin.service.port | default 3000 }}
-      targetPort: a2alogin
-      protocol: TCP
-      name: solace-a2a-login
-    {{- end }}
   selector:
     {{- include "sam.selectorLabels" . | nindent 4 }}

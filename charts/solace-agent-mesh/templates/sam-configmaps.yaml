@@ -96,69 +96,6 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "sam.fullname" $ }}-oauth2-server-config
-  labels:
-    {{- include "sam.labels" $ | nindent 4 }}
-data:
-  oauth2_server.yaml: |
-    log:
-      stdout_log_level: INFO
-      log_file_level: DEBUG
-      log_file: oauth_server.log
-
-    !include shared_config.yaml
-
-    shared_config:
-      # OAuth2 service configuration
-      - oauth2_config: &oauth2_config
-          enabled: true
-          config_file: "config/oauth2_config.yaml"
-          host: "0.0.0.0"
-          port: 5050
-          ssl_cert: ${SSL_CERTFILE}
-          ssl_key: ${SSL_KEYFILE}
-          ssl_passphrase: ${SSL_KEYFILE_PASSWORD}
-
-
-    flows:
-      # Initialize OAuth2 service
-      - name: oauth2_service
-        components:
-          - component_name: oauth2_auth_service
-            component_module: src.components.oauth2_component
-            component_config:
-              <<: *oauth2_config
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "sam.fullname" $ }}-oauth2-config
-  labels:
-    {{- include "sam.labels" $ | nindent 4 }}
-data:
-  oauth2_config.yaml: |
-    ---
-    enabled: ${OAUTH2_ENABLED:true}
-    development_mode: ${OAUTH2_DEV_MODE:false}
-    server:
-      host: ${EXTERNAL_AUTH_HOST:localhost}
-      port: 8050
-      ssl:
-        cert_file: ${SSL_CERTFILE:}
-        key_file: ${SSL_KEYFILE:}
-        ssl_passphrase: ${SSL_KEYFILE_PASSWORD:}
-    providers:
-      oidc:
-        issuer: ${OIDC_ISSUER:https://your-provider.com}
-        client_id: ${OIDC_CLIENT_ID}
-        client_secret: ${OIDC_CLIENT_SECRET}
-        redirect_uri: ${OIDC_REDIRECT_URI:http://localhost:8080/callback}
-        scope: "openid email profile offline_access"
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
   name: {{ include "sam.fullname" $ }}-orchestrator-config
   labels:
     {{- include "sam.labels" $ | nindent 4 }}

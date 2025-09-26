@@ -34,16 +34,22 @@ spec:
       containers:
         - name: sam
           ports:
-            - name: webui
+            - name: webui-tls
               containerPort: 8443
+            - name: webui
+              containerPort: 8000
             - name: auth
               containerPort: 5050
-          {{- if and .Values.environmentVariables (gt (len .Values.environmentVariables) 0) }}
           envFrom:
+            - configMapRef:
+                name: {{ include "sam.fullname" $ }}-config
+            - secretRef:
+                name: {{ include "sam.fullname" $ }}-secret
+            {{- if and .Values.environmentVariables (gt (len .Values.environmentVariables) 0) }}
             - secretRef:
                 name: {{ include "sam.fullname" . }}-env-vars
-          {{- end }}
-          command: ["solace-agent-mesh", "run", "--system-env", "/app/config/a2a_orchestrator.yaml", "/app/config/webui_backend.yaml", "/app/config/oauth2_server.yaml"]
+            {{- end }}
+          command: ["solace-agent-mesh", "run", "--system-env", "/app/config/a2a_orchestrator.yaml", "/app/config/webui_backend.yaml",]
           {{- if .Values.securityContext }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -60,8 +66,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: webui
+              {{- if .Values.tls.enabled }}
+              port: webui-tls
               scheme: HTTPS
+              {{- else }}
+              port: webui
+              scheme: HTTP
+              {{- end }}
             initialDelaySeconds: 30 # Give the app time to start before probing
             successThreshold: 1
             failureThreshold: 10
@@ -70,8 +81,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: webui
+              {{- if .Values.tls.enabled }}
+              port: webui-tls
               scheme: HTTPS
+              {{- else }}
+              port: webui
+              scheme: HTTP
+              {{- end }}
             initialDelaySeconds: 30 # Give the app time to start before probing
             successThreshold: 1
             failureThreshold: 10
@@ -82,14 +98,9 @@ spec:
             - name: config-volume
               mountPath: /app/config
               readOnly: true
-            {{- if .Values.files }}
-            {{- range .Values.files }}
-            - name: {{ .name }}-volume
-              mountPath: {{ .path }}
-              subPath: {{ .subPath }}
+            - name: tls-certs
+              mountPath: /app/certs
               readOnly: true
-            {{- end }}
-            {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -101,23 +112,16 @@ spec:
       volumes:
         - name: shared-storage
           emptyDir: {}
+        - name: tls-certs
+          secret:
+            secretName: {{ include "sam.fullname" $ }}-tls
+            optional: true
         - name: config-volume
           projected:
             sources:
               - configMap:
                   name: {{ include "sam.fullname" $ }}-shared-config
               - configMap:
-                  name: {{ include "sam.fullname" $ }}-oauth2-server-config
-              - configMap:
-                  name: {{ include "sam.fullname" $ }}-oauth2-config
-              - configMap:
                   name: {{ include "sam.fullname" $ }}-orchestrator-config
               - configMap:
                   name: {{ include "sam.fullname" $ }}-webui-config
-        {{- if .Values.files }}
-        {{- range .Values.files }}
-        - name: {{ .name }}-volume
-          secret:
-            secretName: {{ include "sam.fullname" $ }}-{{ .name }}
-        {{- end }}
-        {{- end }}
