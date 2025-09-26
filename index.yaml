@@ -2,7 +2,20 @@ apiVersion: v1
 entries:
   solace-agent-mesh:
   - apiVersion: v2
-    created: "2025-09-26T13:27:37.424347349Z"
+    created: "2025-09-26T13:28:14.41133315Z"
+    description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
+    digest: 96619f787aa4ef7e47b8e41728ed9d57fdea6846677016829e01b6ed1422ab73
+    home: https://solace.cloud
+    maintainers:
+    - email: info@solace.com
+      name: Solace PubSub+ Cloud
+    name: solace-agent-mesh
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.3.tgz
+    version: 0.0.3
+  - apiVersion: v2
+    created: "2025-09-26T13:28:14.410754689Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: d039726f4e1134d6ac73e02565cb470631f266651f98f209c6adadc9897e3a45
     home: https://solace.cloud
@@ -15,7 +28,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.2.tgz
     version: 0.0.2
   - apiVersion: v2
-    created: "2025-09-26T13:27:37.423667029Z"
+    created: "2025-09-26T13:28:14.410157021Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: e34ba11b2c0ae6fcda47d977fdaefa072986d8c879444666fe1a2427bb7dcad3
     home: https://solace.cloud
@@ -29,10 +42,10 @@ entries:
     version: 0.0.1
   solace-agent-mesh-agent:
   - apiVersion: v2
-    created: "2025-09-26T13:27:37.424736705Z"
+    created: "2025-09-26T13:28:14.41170765Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
       Cloud
-    digest: b8741e3d81aeabbb606cf3325b1ad1137c2d36688c355d677efac89b4af862b2
+    digest: 549a09079992938aa561a8e5a619a79ee8199fb17be4dec2407112f0e67f798c
     home: https://solace.cloud
     maintainers:
     - email: info@solace.com
@@ -42,4 +55,4 @@ entries:
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-agent-0.0.1.tgz
     version: 0.0.1
-generated: "2025-09-26T13:27:37.422816754Z"
+generated: "2025-09-26T13:28:14.409372054Z"
