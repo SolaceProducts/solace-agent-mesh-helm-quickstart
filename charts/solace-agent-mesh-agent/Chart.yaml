@@ -1,8 +1,8 @@
 apiVersion: v2
-name: solace-agent-mesh-agent
+name: sam-agent
 description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace Cloud
 type: application
-version: 0.0.1
+version: 1.0.1
 maintainers:
   - name: Solace PubSub+ Cloud
     email: info@solace.com

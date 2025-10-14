@@ -69,3 +69,115 @@ annotations:
 {{- end }}
 {{- join " " $tags }}
 {{- end }}
+
+{{/*
+PostgreSQL secret discovery and access helpers
+*/}}
+
+{{/*
+Get PostgreSQL secret name using service discovery
+*/}}
+{{- define "sam.postgresql.secretName" -}}
+{{- $namespaceId := .Values.global.persistence.namespaceId }}
+{{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+{{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
+{{- $found := "" }}
+{{- range $allSecrets.items }}
+{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/namespace-id" | default "") $namespaceId) (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "postgresql") }}
+{{- $found = .metadata.name }}{{- break }}{{- end }}{{- end }}
+{{- if not $found }}{{- fail (printf "PostgreSQL secret not found for namespaceId '%s'. Make sure the chart with persistence is deployed first." $namespaceId) }}{{- end }}
+{{- $found }}
+{{- end }}
+
+{{/*
+Generate DATABASE_URL from helpers and discovered PostgreSQL secret
+*/}}
+{{- define "sam.postgresql.databaseUrl" -}}
+{{- $secretName := include "sam.postgresql.secretName" . }}
+{{- $pgSecret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+{{- if not $pgSecret }}{{- fail (printf "PostgreSQL secret '%s' not found" $secretName) }}{{- end }}
+{{- $pgHost := index $pgSecret.data "PGHOST" | b64dec }}
+{{- $pgPort := index $pgSecret.data "PGPORT" | b64dec }}
+{{- printf "postgresql+psycopg2://%s:%s@%s:%s/%s" (include "sam.database.agentUser" .) (include "sam.database.agentPassword" .) $pgHost $pgPort (include "sam.database.agentName" .) }}
+{{- end }}
+
+{{/*
+SeaweedFS secret discovery and access helpers
+*/}}
+
+{{/*
+Get SeaweedFS secret name using service discovery
+*/}}
+{{- define "sam.seaweedfs.secretName" -}}
+{{- $namespaceId := .Values.global.persistence.namespaceId }}
+{{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+{{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
+{{- $found := "" }}
+{{- range $allSecrets.items }}
+{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/namespace-id" | default "") $namespaceId) (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "seaweedfs") }}
+{{- $found = .metadata.name }}{{- break }}{{- end }}{{- end }}
+{{- if not $found }}{{- fail (printf "SeaweedFS secret not found for namespaceId '%s'. Make sure the chart with persistence is deployed first." $namespaceId) }}{{- end }}
+{{- $found }}
+{{- end }}
+
+{{/*
+Get SeaweedFS S3 URL from discovered secret
+*/}}
+{{- define "sam.seaweedfs.url" -}}
+{{- $secretName := include "sam.seaweedfs.secretName" . }}
+{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+{{- if not $secret }}{{- fail (printf "SeaweedFS secret '%s' not found" $secretName) }}{{- end }}
+{{- $url := index $secret.data "S3_ENDPOINT_URL" | b64dec }}
+{{- if not $url }}{{- fail "S3_ENDPOINT_URL not found in SeaweedFS secret" }}{{- end }}
+{{- $url }}
+{{- end }}
+
+{{/*
+S3 configuration helpers - generates consistent S3 settings based on namespaceId
+*/}}
+
+{{/*
+Get S3 bucket name (same as namespaceId)
+*/}}
+{{- define "sam.s3.bucketName" -}}
+{{- .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get S3 access key (same as namespaceId)
+*/}}
+{{- define "sam.s3.accessKey" -}}
+{{- .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get S3 secret key (same as namespaceId)
+*/}}
+{{- define "sam.s3.secretKey" -}}
+{{- .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Database configuration helpers - generates agent database settings based on namespaceId
+*/}}
+
+{{/*
+Get agent database name (namespaceId_agentId_agent)
+*/}}
+{{- define "sam.database.agentName" -}}
+{{- printf "%s_%s_agent" .Values.global.persistence.namespaceId .Values.agentId }}
+{{- end }}
+
+{{/*
+Get agent database user (namespaceId_agentId_agent)
+*/}}
+{{- define "sam.database.agentUser" -}}
+{{- printf "%s_%s_agent" .Values.global.persistence.namespaceId .Values.agentId }}
+{{- end }}
+
+{{/*
+Get agent database password (same as user for simplicity)
+*/}}
+{{- define "sam.database.agentPassword" -}}
+{{- printf "%s_%s_agent" .Values.global.persistence.namespaceId .Values.agentId }}
+{{- end }}

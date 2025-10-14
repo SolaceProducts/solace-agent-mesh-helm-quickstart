@@ -1,5 +1,22 @@
 replicaCount: 1
 
+global:
+  persistence:
+    namespaceId: "solace-agent-mesh"
+    enabled: true
+  imageRegistry: ""
+
+# Persistence layer configuration (subchart)
+# This is only used when global.persistence.enabled is true
+persistence-layer:
+  postgresql:
+    password: "postgres"  # PostgreSQL root password
+    persistence:
+      size: 10Gi
+  seaweedfs:
+    persistence:
+      size: 20Gi
+
 config:
   # Built-in agents configuration
   agents:
@@ -57,6 +74,12 @@ image:
   pullPolicy: Always
   imagePullSecrets: []
 
+agentDeployer:
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: Always
+
 rollout:
   rollingUpdate: {}
   strategy: Recreate
@@ -76,20 +99,21 @@ tls:
   enabled: true
   cert: ""
   key: ""
+  passphrase: ""
 
-environmentVariables: []
+# Additional environment variables for SAM configuration
+# These are injected into the containers and used for runtime configuration
+# Note: Variables already configured through dedicated values.yaml sections
+# (solaceBroker, llm, sam, tls, global.persistence) should not be duplicated here
+environmentVariables: {}
+  # Example custom variables:
+  # CUSTOM_VAR: "value"
+  # ANOTHER_VAR: "another-value"
 
-datadog:
-  tags:
 
 service:
   type: LoadBalancer
-  port: 5001
   annotations: {}
-  dns:
-    enabled: false
-    hostname: ""
-    ttl: "300"
 
 resources:
   sam:
@@ -99,25 +123,37 @@ resources:
     limits:
       cpu: 200m
       memory: 768Mi
+  agentDeployer:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
 
 # SAM host info
 sam:
-  devMode: false
+  enterprise: false
   hostname:
   webUiPort:
   callbackUrl:
-  namespace: default-namespace
   idpUrl:
   tlsCertPath: /app/certs/tls.crt
   tlsKeyPath: /app/certs/tls.key
   tlsPassphrase:
-  sessionSecretKey: random-secret-key
-  sessionType: memory # memory or sql
-  webUIDatabaseUrl: postgresql+psycopg2://webui:webui@localhost:5432/webui
-  orchestratorDatabaseUrl: postgresql+psycopg2://orchestrator:orchestrator@localhost:5432/orchestrator
+  sessionSecretKey: please_change_me_in_production
+  # OIDC configuration (Enterprise only)
+  oidc:
+    issuer: "https://your-provider.com"
+    clientId: ""
+    clientSecret: ""
 
 llm:
   planningModel: openai/claude-3-7-sonnet
+  generalModel: openai/claude-3-7-sonnet
+  reportModel: openai/claude-3-7-sonnet
+  imageModel: dall-e-3
+  transcriptionModel: whisper-1
   embeddingModel: openai/claude-3-7-sonnet
   llmServiceEndpoint: https://llm.endpoint.com
   llmServiceApiKey: llm-service-api-key
@@ -127,17 +163,3 @@ solaceBroker:
   vpn: default
   username: admin
   password: admin
-
-install-bundled-pgsql: false
-# postgresql:
-#   auth:
-#     database: gateway
-#     username: gateway
-#     password: password
-#   primary:
-#     service:
-#       port: 5432
-#   metrics:
-#     enabled: false
-#   persistence:
-#     enabled: false

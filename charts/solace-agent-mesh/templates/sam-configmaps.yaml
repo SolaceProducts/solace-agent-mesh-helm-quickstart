@@ -76,22 +76,76 @@ data:
         multimodal: &multimodal_model "gemini-2.5-flash-preview-04-17"
         gemini_pro: &gemini_pro_model "gemini-2.5-pro-exp-03-25"
 
-      # Default session service configuration
-      - session_service: &default_session_service
-          type: "memory"
-          default_behavior: "PERSISTENT"
-
-      # Default artifact service configuration
-      - artifact_service: &default_artifact_service
-          type: "filesystem"
-          base_path: "/tmp/samv2"
-          artifact_scope: namespace
-
       # Default data tools configuration
       - data_tools_config: &default_data_tools_config
           sqlite_memory_threshold_mb: 100
           max_result_preview_rows: 50
           max_result_preview_bytes: 4096
+{{- if .Values.sam.enterprise }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sam.fullname" $ }}-oauth2-server-config
+  labels:
+    {{- include "sam.labels" $ | nindent 4 }}
+data:
+  oauth2_server.yaml: |
+    log:
+      stdout_log_level: INFO
+      log_file_level: DEBUG
+      log_file: oauth_server.log
+
+    !include shared_config.yaml
+
+    shared_config:
+      # OAuth2 service configuration
+      - oauth2_config: &oauth2_config
+          enabled: true
+          config_file: "config/oauth2_config.yaml"
+          host: "0.0.0.0"
+          port: 5050
+          ssl_cert: ${SSL_CERTFILE}
+          ssl_key: ${SSL_KEYFILE}
+          ssl_passphrase: ${SSL_KEYFILE_PASSWORD}
+
+
+    flows:
+      # Initialize OAuth2 service
+      - name: oauth2_service
+        components:
+          - component_name: oauth2_auth_service
+            component_module: src.components.oauth2_component
+            component_config:
+              <<: *oauth2_config
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sam.fullname" $ }}-oauth2-config
+  labels:
+    {{- include "sam.labels" $ | nindent 4 }}
+data:
+  oauth2_config.yaml: |
+    ---
+    enabled: ${OAUTH2_ENABLED:true}
+    development_mode: ${OAUTH2_DEV_MODE:false}
+    server:
+      host: ${EXTERNAL_AUTH_HOST:localhost}
+      port: 5050
+      ssl:
+        cert_file: ${SSL_CERTFILE:}
+        key_file: ${SSL_KEYFILE:}
+        ssl_passphrase: ${SSL_KEYFILE_PASSWORD:}
+    providers:
+      oidc:
+        issuer: ${OIDC_ISSUER:https://your-provider.com}
+        client_id: ${OIDC_CLIENT_ID}
+        client_secret: ${OIDC_CLIENT_SECRET}
+        redirect_uri: ${OIDC_REDIRECT_URI:http://localhost:8080/callback}
+        scope: "openid email profile offline_access"
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -139,13 +193,25 @@ data:
           inject_system_purpose: true
           inject_response_format: true
           inject_user_profile: true
-          artifact_service: *default_artifact_service
           artifact_handling_mode: "embed"
           enable_embed_resolution: true
           enable_artifact_content_instruction: true
           data_tools_config: *default_data_tools_config
           max_llm_calls_per_task: 25
-    
+          {{- if .Values.global.persistence.enabled }}
+
+          artifact_service:
+            type: "s3"
+            bucket_name: "${S3_BUCKET_NAME}"
+            endpoint_url: "${S3_ENDPOINT_URL}"
+          {{- else }}
+
+          artifact_service:
+            type: "filesystem"
+            base_path: "/tmp/samv2"
+            artifact_scope: namespace
+          {{- end }}
+
           session_service:
             type: "${ORCHESTRATOR_SESSION_SERVICE_TYPE}"
             database_url: "${ORCHESTRATOR_DATABASE_URL}"
@@ -196,8 +262,6 @@ data:
           namespace: ${NAMESPACE}
           session_secret_key: ${SESSION_SECRET_KEY, please_change_me_in_production}
 
-          artifact_service: *default_artifact_service
-
           gateway_id: ${WEBUI_GATEWAY_ID}
           fastapi_host: ${FASTAPI_HOST, 127.0.0.1}
           fastapi_port: ${FASTAPI_PORT, 8000}
@@ -230,11 +294,27 @@ data:
           frontend_auth_login_url: ${EXTERNAL_AUTH_SERVICE_URL}/login?provider=${EXTERNAL_AUTH_PROVIDER}
           frontend_use_authorization: ${FRONTEND_USE_AUTHORIZATION, false}
           frontend_redirect_url: ${FRONTEND_REDIRECT_URL, ""}
+          {{- if .Values.sam.enterprise }}
+          frontend_feature_enablement: { agentBuilder: true }
+          {{- end }}
 
           external_auth_callback_uri: ${EXTERNAL_AUTH_CALLBACK, http://localhost:8000/api/v1/auth/callback}
           external_auth_service_url: ${EXTERNAL_AUTH_SERVICE_URL, http://localhost:8080}
           external_auth_provider: ${EXTERNAL_AUTH_PROVIDER, azure}
-    
+          {{- if .Values.global.persistence.enabled }}
+
+          artifact_service:
+            type: "s3"
+            bucket_name: "${S3_BUCKET_NAME}"
+            endpoint_url: "${S3_ENDPOINT_URL}"
+          {{- else }}
+
+          artifact_service:
+            type: "filesystem"
+            base_path: "/tmp/samv2"
+            artifact_scope: namespace
+          {{- end }}
+
           session_service:
             type: "${WEB_UI_SESSION_SERVICE_TYPE}"
             database_url: "${WEB_UI_GATEWAY_DATABASE_URL}"

@@ -12,10 +12,6 @@ metadata:
     {{- if .Values.service.annotations }}
     {{- toYaml .Values.service.annotations | nindent 4 }}
     {{- end }}
-    {{- if .Values.service.dns.enabled }}
-    external-dns.alpha.kubernetes.io/hostname: {{ .Values.service.dns.hostname }}
-    external-dns.alpha.kubernetes.io/ttl: {{ .Values.service.dns.ttl | quote }}
-    {{- end }}
 spec:
   type: {{ .Values.service.type | default "ClusterIP" }}
   publishNotReadyAddresses: true

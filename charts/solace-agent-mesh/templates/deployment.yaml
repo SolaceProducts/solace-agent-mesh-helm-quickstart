@@ -31,6 +31,60 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
+      {{- if .Values.global.persistence.enabled }}
+      initContainers:
+        - name: s3-init
+          image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}chrislusf/seaweedfs:3.97"
+          envFrom:
+            - secretRef:
+                name: {{ include "seaweedfs.secretName" (index .Subcharts "persistence-layer") }}
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-init-credentials
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for SeaweedFS master to be ready..."
+              until wget --timeout=3 --tries=1 --spider -qO- $SEAWEEDFS_MASTER_ENDPOINT_STATUS_URL >/dev/null; do
+                echo "Master not ready yet..."
+                sleep 5
+              done
+
+              echo -e "SeaweedFS master is ready.\n"
+
+              echo "Waiting for SeaweedFS S3 API to be ready..."
+              until wget --timeout=3 --tries=1 --spider -qO- $SEAWEEDFS_S3_ENDPOINT_STATUS_URL >/dev/null; do
+                echo "S3 API not ready yet..."
+                sleep 5
+              done
+
+              echo -e "SeaweedFS S3 API is ready.\n"
+
+              echo "Configuring SeaweedFS S3 credentials and bucket..."
+              echo "s3.bucket.create -name=$S3_BUCKET_NAME" | weed shell -master=$SEAWEEDFS_MASTER_ENDPOINT || exit 1
+              echo "s3.configure -apply -access_key=$S3_ACCESS_KEY -secret_key=$S3_SECRET_KEY -user=$S3_ACCESS_KEY -actions=Read,Write,List -buckets=$S3_BUCKET_NAME" | weed shell -master=$SEAWEEDFS_MASTER_ENDPOINT > /dev/null || exit 1
+
+              echo "SeaweedFS S3 setup completed successfully!"
+        - name: db-init
+          image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}postgres:18.0"
+          envFrom:
+            - secretRef:
+                name: {{ include "postgresql.secretName" (index .Subcharts "persistence-layer") }}
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-init-credentials
+          command:
+            - "sh"
+            - "-c"
+            - |
+              until pg_isready; do
+                echo "Waiting for postgres..."
+                sleep 5
+              done
+              psql -c "CREATE USER \"$WEB_UI_GATEWAY_DATABASE_USER\" WITH PASSWORD '$WEB_UI_GATEWAY_DATABASE_PASSWORD';" || true
+              psql -c "CREATE DATABASE \"$WEB_UI_GATEWAY_DATABASE_NAME\" OWNER \"$WEB_UI_GATEWAY_DATABASE_USER\";" || true
+              psql -c "CREATE USER \"$ORCHESTRATOR_DATABASE_USER\" WITH PASSWORD '$ORCHESTRATOR_DATABASE_PASSWORD';" || true
+              psql -c "CREATE DATABASE \"$ORCHESTRATOR_DATABASE_NAME\" OWNER \"$ORCHESTRATOR_DATABASE_USER\";" || true
+      {{- end }}
       containers:
         - name: sam
           ports:
@@ -40,16 +94,31 @@ spec:
               containerPort: 8000
             - name: auth
               containerPort: 5050
+          env:
+            - name: ORCHESTRATOR_SESSION_SERVICE_TYPE
+              value: {{ if .Values.global.persistence.enabled }}"sql"{{ else }}"memory"{{ end }}
+            - name: WEB_UI_SESSION_SERVICE_TYPE
+              value: {{ if .Values.global.persistence.enabled }}"sql"{{ else }}"memory"{{ end }}
           envFrom:
-            - configMapRef:
-                name: {{ include "sam.fullname" $ }}-config
             - secretRef:
-                name: {{ include "sam.fullname" $ }}-secret
-            {{- if and .Values.environmentVariables (gt (len .Values.environmentVariables) 0) }}
+                name: {{ include "sam.fullname" . }}-config
+            {{- if .Values.global.persistence.enabled }}
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-persistence
+            {{- end }}
+            {{- if .Values.environmentVariables }}
             - secretRef:
                 name: {{ include "sam.fullname" . }}-env-vars
             {{- end }}
-          command: ["solace-agent-mesh", "run", "--system-env", "/app/config/a2a_orchestrator.yaml", "/app/config/webui_backend.yaml",]
+          command:
+            - solace-agent-mesh
+            - run
+            - --system-env
+            - /app/config/a2a_orchestrator.yaml
+            - /app/config/webui_backend.yaml
+            {{- if .Values.sam.enterprise }}
+            - /app/config/oauth2_server.yaml
+            {{- end }}
           {{- if .Values.securityContext }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -101,6 +170,28 @@ spec:
             - name: tls-certs
               mountPath: /app/certs
               readOnly: true
+        {{- if .Values.sam.enterprise }}
+        - name: agent-deployer
+          envFrom:
+            - configMapRef:
+                name: {{ include "sam.fullname" . }}-agent-deployer-config
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-config
+          {{- if .Values.environmentVariables }}
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-env-vars
+          {{- end }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.agentDeployer.image.repository }}:{{ .Values.agentDeployer.image.tag }}"
+          imagePullPolicy: {{ .Values.agentDeployer.image.pullPolicy }}
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources.agentDeployer | nindent 12 }}
+          {{- end }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -121,6 +212,12 @@ spec:
             sources:
               - configMap:
                   name: {{ include "sam.fullname" $ }}-shared-config
+              {{- if .Values.sam.enterprise }}
+              - configMap:
+                  name: {{ include "sam.fullname" $ }}-oauth2-server-config
+              - configMap:
+                  name: {{ include "sam.fullname" $ }}-oauth2-config
+              {{- end }}
               - configMap:
                   name: {{ include "sam.fullname" $ }}-orchestrator-config
               - configMap:

@@ -1,6 +1,20 @@
 replicaCount: 1
 
+global:
+  persistence:
+    namespaceId: "solace-agent-mesh"
+  imageRegistry: ""
+
+agentId: ""
+
 config:
+  # Option 1: Provide agent configuration as structured YAML (below)
+  # Option 2: Provide raw YAML string using config.agentYaml (uncomment below)
+  # agentYaml: |
+  #   agents:
+  #     - name: web_request
+  #       enabled: true
+
   # Built-in agents configuration
   agents:
     - name: web_request
@@ -49,10 +63,10 @@ config:
         modulePath: ""
         config: {}
 serviceAccount:
-  name: solace-agent-mesh-agent-sa
+  name: solace-agent-mesh-sa
 image:
-  repository:
-  tag:
+  repository: solace/solace-agent-mesh
+  tag: latest
   pullPolicy: Always
 
 rollout:
@@ -68,7 +82,28 @@ podAnnotations: {}
 podLabels: {}
 
 files: []
+
+# Solace Broker Configuration
+solaceBroker:
+  url: "ws://localhost:8080"
+  username: "default"
+  password: "default"
+  vpn: "default"
+  useTemporaryQueues: true
+
+# Namespace identifier (required)
+namespace: ""
+
+# LLM Service Configuration (required)
+llmService:
+  generalModelName: ""
+  endpoint: ""
+  apiKey: ""
+
+# Additional custom environment variables
 environmentVariables: []
+# - key: CUSTOM_VAR
+#   value: "custom_value"
 
 datadog:
   tags:
@@ -85,8 +120,8 @@ service:
 resources:
   sam:
     requests:
-      cpu: 100m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 1024Mi
     limits:
-      cpu: 200m
-      memory: 768Mi
+      cpu: 2000m
+      memory: 2048Mi

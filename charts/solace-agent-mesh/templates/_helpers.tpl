@@ -85,3 +85,74 @@ annotations:
 {{- fail "No valid SAM webUiPort port defined. Please set sam.webUiPort in values.yaml." }}
 {{- end }}
 {{- end }}
+
+{{/*
+S3 configuration helpers - generates consistent S3 settings based on namespaceId
+*/}}
+
+{{/*
+Get S3 bucket name (same as namespaceId)
+*/}}
+{{- define "sam.s3.bucketName" -}}
+{{- .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get S3 access key (same as namespaceId)
+*/}}
+{{- define "sam.s3.accessKey" -}}
+{{- .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get S3 secret key (same as namespaceId)
+*/}}
+{{- define "sam.s3.secretKey" -}}
+{{- .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Database configuration helpers - generates consistent database settings based on namespaceId
+*/}}
+
+{{/*
+Get WebUI database name (namespaceId_webui)
+*/}}
+{{- define "sam.database.webuiName" -}}
+{{- printf "%s_webui" .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get WebUI database user (namespaceId_webui)
+*/}}
+{{- define "sam.database.webuiUser" -}}
+{{- printf "%s_webui" .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get WebUI database password (same as user for simplicity)
+*/}}
+{{- define "sam.database.webuiPassword" -}}
+{{- printf "%s_webui" .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get Orchestrator database name (namespaceId_orchestrator)
+*/}}
+{{- define "sam.database.orchestratorName" -}}
+{{- printf "%s_orchestrator" .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get Orchestrator database user (namespaceId_orchestrator)
+*/}}
+{{- define "sam.database.orchestratorUser" -}}
+{{- printf "%s_orchestrator" .Values.global.persistence.namespaceId }}
+{{- end }}
+
+{{/*
+Get Orchestrator database password (same as user for simplicity)
+*/}}
+{{- define "sam.database.orchestratorPassword" -}}
+{{- printf "%s_orchestrator" .Values.global.persistence.namespaceId }}
+{{- end }}

@@ -31,17 +31,37 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
-      containers:
-        - name: sam
-          {{- if and .Values.environmentVariables (gt (len .Values.environmentVariables) 0) }}
+      initContainers:
+        - name: db-init
+          image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}postgres:18.0"
           envFrom:
             - secretRef:
+                name: {{ include "sam.postgresql.secretName" . }}
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-init-credentials
+          command:
+            - "sh"
+            - "-c"
+            - |
+              until pg_isready; do
+                echo "Waiting for postgres..."
+                sleep 5
+              done
+              psql -c "CREATE USER \"$DATABASE_USER\" WITH PASSWORD '$DATABASE_PASSWORD';" || true
+              psql -c "CREATE DATABASE \"$DATABASE_NAME\" OWNER \"$DATABASE_USER\";" || true
+      containers:
+        - name: sam
+          envFrom:
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-persistence
+            - secretRef:
                 name: {{ include "sam.fullname" . }}-env-vars
-          {{- end }}
-          command: ["solace-agent-mesh", "run", "--system-env"]
+          command: ["solace-agent-mesh", "run", "--system-env", "/app/config/agent.yaml"]
           {{- if .Values.securityContext }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+            runAsUser: 999
+            runAsGroup: 999
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -72,14 +92,10 @@ spec:
           volumeMounts:
             - name: shared-storage
               mountPath: /tmp/solace-agent-mesh
-            {{- if .Values.files }}
-            {{- range .Values.files }}
-            - name: {{ .name }}-volume
-              mountPath: {{ .path }}
-              subPath: {{ .subPath }}
+            - name: config-volume
+              mountPath: /app/config/agent.yaml
+              subPath: agent.yaml
               readOnly: true
-            {{- end }}
-            {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -91,10 +107,6 @@ spec:
       volumes:
         - name: shared-storage
           emptyDir: {}
-        {{- if .Values.files }}
-        {{- range .Values.files }}
-        - name: {{ .name }}-volume
-          secret:
-            secretName: {{ include "sam.fullname" $ }}-{{ .name }}
-        {{- end }}
-        {{- end }}
+        - name: config-volume
+          configMap:
+            name: {{ include "sam.fullname" . }}-config
