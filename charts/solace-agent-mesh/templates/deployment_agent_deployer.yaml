@@ -1,0 +1,65 @@
+{{- if .Values.sam.enterprise }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sam.fullname" . }}-agent-deployer
+  labels:
+    {{- include "sam.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent-deployer
+  {{- include "sam.annotations" . | nindent 2 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sam.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: agent-deployer
+  strategy:
+    {{- if eq .Values.samDeployment.rollout.strategy "RollingUpdate" }}
+    {{- with .Values.samDeployment.rollout.rollingUpdate }}
+    rollingUpdate:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- end }}
+    type: {{ .Values.samDeployment.rollout.strategy }}
+  template:
+    metadata:
+      annotations:
+        {{- include "sam.podAnnotations" . | nindent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap_agent_deployer.yaml") . | sha256sum }}
+        checksum/env: {{ include (print $.Template.BasePath "/secret_sam_env.yaml") . | sha256sum }}
+      labels:
+        {{- include "sam.selectorLabels" . | nindent 8 }}
+        {{- include "sam.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: agent-deployer
+    spec:
+      serviceAccountName: {{ .Values.samDeployment.serviceAccount.name }}
+      {{- if .Values.samDeployment.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.samDeployment.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent-deployer
+          envFrom:
+            - configMapRef:
+                name: {{ include "sam.fullname" . }}-agent-deployer-config
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-environment
+          {{- if .Values.samDeployment.securityContext }}
+          securityContext:
+            {{- toYaml .Values.samDeployment.securityContext | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.samDeployment.agentDeployer.image.repository }}:{{ .Values.samDeployment.agentDeployer.image.tag }}"
+          imagePullPolicy: {{ .Values.samDeployment.agentDeployer.image.pullPolicy }}
+          {{- if .Values.samDeployment.resources }}
+          resources:
+            {{- toYaml .Values.samDeployment.resources.agentDeployer | nindent 12 }}
+          {{- end }}
+      {{- with .Values.samDeployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.samDeployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

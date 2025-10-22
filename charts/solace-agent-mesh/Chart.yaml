@@ -2,7 +2,7 @@ apiVersion: v2
 name: solace-agent-mesh
 description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
 type: application
-version: 0.1.0
+version: 0.2.0
 maintainers:
   - name: Solace PubSub+ Cloud
     email: info@solace.com
@@ -10,6 +10,6 @@ home: https://solace.cloud
 
 dependencies:
   - name: persistence-layer
-    version: 1.3.2
+    version: 1.5.0
     repository: "file:./charts"
     condition: global.persistence.enabled  

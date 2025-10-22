@@ -101,9 +101,8 @@ llmService:
   apiKey: ""
 
 # Additional custom environment variables
-environmentVariables: []
-# - key: CUSTOM_VAR
-#   value: "custom_value"
+environmentVariables: {}
+# CUSTOM_VAR: "custom_value"
 
 datadog:
   tags:

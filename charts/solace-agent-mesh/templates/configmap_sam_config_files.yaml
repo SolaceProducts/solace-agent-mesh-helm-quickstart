@@ -96,13 +96,13 @@ data:
       log_file_level: DEBUG
       log_file: oauth_server.log
 
-    !include shared_config.yaml
+    !include ../shared_config.yaml
 
     shared_config:
       # OAuth2 service configuration
       - oauth2_config: &oauth2_config
           enabled: true
-          config_file: "config/oauth2_config.yaml"
+          config_file: "config/auth/oauth2_config.yaml"
           host: "0.0.0.0"
           port: 5050
           ssl_cert: ${SSL_CERTFILE}
@@ -198,19 +198,11 @@ data:
           enable_artifact_content_instruction: true
           data_tools_config: *default_data_tools_config
           max_llm_calls_per_task: 25
-          {{- if .Values.global.persistence.enabled }}
 
           artifact_service:
             type: "s3"
             bucket_name: "${S3_BUCKET_NAME}"
             endpoint_url: "${S3_ENDPOINT_URL}"
-          {{- else }}
-
-          artifact_service:
-            type: "filesystem"
-            base_path: "/tmp/samv2"
-            artifact_scope: namespace
-          {{- end }}
 
           session_service:
             type: "${ORCHESTRATOR_SESSION_SERVICE_TYPE}"
@@ -295,27 +287,75 @@ data:
           frontend_use_authorization: ${FRONTEND_USE_AUTHORIZATION, false}
           frontend_redirect_url: ${FRONTEND_REDIRECT_URL, ""}
           {{- if .Values.sam.enterprise }}
-          frontend_feature_enablement: { agentBuilder: true }
+          frontend_feature_enablement: { agentBuilder: true, agentConnectors: true }
           {{- end }}
 
           external_auth_callback_uri: ${EXTERNAL_AUTH_CALLBACK, http://localhost:8000/api/v1/auth/callback}
           external_auth_service_url: ${EXTERNAL_AUTH_SERVICE_URL, http://localhost:8080}
           external_auth_provider: ${EXTERNAL_AUTH_PROVIDER, azure}
-          {{- if .Values.global.persistence.enabled }}
 
           artifact_service:
             type: "s3"
             bucket_name: "${S3_BUCKET_NAME}"
             endpoint_url: "${S3_ENDPOINT_URL}"
-          {{- else }}
-
-          artifact_service:
-            type: "filesystem"
-            base_path: "/tmp/samv2"
-            artifact_scope: namespace
-          {{- end }}
 
           session_service:
             type: "${WEB_UI_SESSION_SERVICE_TYPE}"
             database_url: "${WEB_UI_GATEWAY_DATABASE_URL}"
             default_behavior: "PERSISTENT"
+{{- if .Values.sam.enterprise }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sam.fullname" $ }}-enterprise-config
+  labels:
+    {{- include "sam.labels" $ | nindent 4 }}
+data:
+  enterprise_config.yaml: |
+    authorization_service:
+      type: "default_rbac"
+      role_to_scope_definitions_path: "config/auth/role-to-scope-definitions.yaml"
+      user_to_role_assignments_path: "config/auth/user-to-role-assignments.yaml"
+    namespace: ${NAMESPACE}
+    gateway_id: ${WEBUI_GATEWAY_ID}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sam.fullname" $ }}-role-definitions
+  labels:
+    {{- include "sam.labels" $ | nindent 4 }}
+data:
+  # For more information on RBAC role definitions and scope patterns, see:
+  # https://solacelabs.github.io/solace-agent-mesh/docs/documentation/enterprise/rbac-setup-guide
+  role-to-scope-definitions.yaml: |
+    roles:
+      sam_admin:
+        description: "Full access for SAM administrators"
+        scopes:
+          - "*"
+
+      sam_user:
+        description: "Standard user with basic access"
+        scopes:
+          - "tool:basic:read"
+          - "tool:basic:search"
+          - "tool:artifact:list"
+          - "tool:artifact:load"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sam.fullname" $ }}-user-roles
+  labels:
+    {{- include "sam.labels" $ | nindent 4 }}
+data:
+  user-to-role-assignments.yaml: |
+    users:
+{{- range .Values.sam.authenticationRbac.users }}
+      {{ .identity }}:
+        roles: {{ .roles | toJson }}
+        description: "{{ .description }}"
+{{- end }}
+{{- end }}

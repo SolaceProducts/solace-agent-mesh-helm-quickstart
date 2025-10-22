@@ -9,11 +9,11 @@ metadata:
     deploymentId: {{ .Values.deploymentId | quote }}
     {{- end }}
   annotations:
-    {{- if .Values.service.annotations }}
-    {{- toYaml .Values.service.annotations | nindent 4 }}
+    {{- if .Values.ingressService.annotations }}
+    {{- toYaml .Values.ingressService.annotations | nindent 4 }}
     {{- end }}
 spec:
-  type: {{ .Values.service.type | default "ClusterIP" }}
+  type: {{ .Values.ingressService.type | default "ClusterIP" }}
   publishNotReadyAddresses: true
   ports:
     - port: 443

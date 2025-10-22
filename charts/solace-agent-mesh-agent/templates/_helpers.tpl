@@ -78,14 +78,13 @@ PostgreSQL secret discovery and access helpers
 Get PostgreSQL secret name using service discovery
 */}}
 {{- define "sam.postgresql.secretName" -}}
-{{- $namespaceId := .Values.global.persistence.namespaceId }}
 {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
 {{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
 {{- $found := "" }}
 {{- range $allSecrets.items }}
-{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/namespace-id" | default "") $namespaceId) (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "postgresql") }}
+{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "database") }}
 {{- $found = .metadata.name }}{{- break }}{{- end }}{{- end }}
-{{- if not $found }}{{- fail (printf "PostgreSQL secret not found for namespaceId '%s'. Make sure the chart with persistence is deployed first." $namespaceId) }}{{- end }}
+{{- if not $found }}{{- fail (printf "Database secret not found for namespace '%s'. Make sure the chart with persistence is deployed first." .Release.Namespace ) }}{{- end }}
 {{- $found }}
 {{- end }}
 
@@ -106,29 +105,28 @@ SeaweedFS secret discovery and access helpers
 */}}
 
 {{/*
-Get SeaweedFS secret name using service discovery
+Get S3 secret name using service discovery
 */}}
-{{- define "sam.seaweedfs.secretName" -}}
-{{- $namespaceId := .Values.global.persistence.namespaceId }}
+{{- define "sam.s3.secretName" -}}
 {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
 {{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
 {{- $found := "" }}
 {{- range $allSecrets.items }}
-{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/namespace-id" | default "") $namespaceId) (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "seaweedfs") }}
+{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "s3") }}
 {{- $found = .metadata.name }}{{- break }}{{- end }}{{- end }}
-{{- if not $found }}{{- fail (printf "SeaweedFS secret not found for namespaceId '%s'. Make sure the chart with persistence is deployed first." $namespaceId) }}{{- end }}
+{{- if not $found }}{{- fail (printf "S3 secret not found for namespace '%s'. Make sure the chart with persistence is deployed first." .Release.Namespace ) }}{{- end }}
 {{- $found }}
 {{- end }}
 
 {{/*
-Get SeaweedFS S3 URL from discovered secret
+Get S3 URL from discovered secret
 */}}
-{{- define "sam.seaweedfs.url" -}}
-{{- $secretName := include "sam.seaweedfs.secretName" . }}
+{{- define "sam.s3.url" -}}
+{{- $secretName := include "sam.s3.secretName" . }}
 {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
-{{- if not $secret }}{{- fail (printf "SeaweedFS secret '%s' not found" $secretName) }}{{- end }}
+{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
 {{- $url := index $secret.data "S3_ENDPOINT_URL" | b64dec }}
-{{- if not $url }}{{- fail "S3_ENDPOINT_URL not found in SeaweedFS secret" }}{{- end }}
+{{- if not $url }}{{- fail "S3_ENDPOINT_URL not found in S3 secret" }}{{- end }}
 {{- $url }}
 {{- end }}
 
@@ -137,26 +135,49 @@ S3 configuration helpers - generates consistent S3 settings based on namespaceId
 */}}
 
 {{/*
-Get S3 bucket name (same as namespaceId)
+Get S3 bucket name 
 */}}
 {{- define "sam.s3.bucketName" -}}
+{{- $secretName := include "sam.s3.secretName" . }}
+{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+{{- $bucket := index $secret.data "S3_BUCKET" }}
+{{- if not $bucket }}
 {{- .Values.global.persistence.namespaceId }}
+{{- else }}
+{{- $bucket | b64dec }}
+{{- end }}
 {{- end }}
 
 {{/*
 Get S3 access key (same as namespaceId)
 */}}
 {{- define "sam.s3.accessKey" -}}
+{{- $secretName := include "sam.s3.secretName" . }}
+{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+{{- $accessKey := index $secret.data "S3_ACCESS_KEY" }}
+{{- if not $accessKey }}
 {{- .Values.global.persistence.namespaceId }}
+{{- else }}
+{{- $accessKey | b64dec }}
+{{- end }}
 {{- end }}
 
 {{/*
 Get S3 secret key (same as namespaceId)
 */}}
 {{- define "sam.s3.secretKey" -}}
+{{- $secretName := include "sam.s3.secretName" . }}
+{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+{{- $secretKey := index $secret.data "S3_SECRET_KEY" }}
+{{- if not $secretKey }}
 {{- .Values.global.persistence.namespaceId }}
+{{- else }}
+{{- $secretKey | b64dec }}
 {{- end }}
-
+{{- end }}
 {{/*
 Database configuration helpers - generates agent database settings based on namespaceId
 */}}

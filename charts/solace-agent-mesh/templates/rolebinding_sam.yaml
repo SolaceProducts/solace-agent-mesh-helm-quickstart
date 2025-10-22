@@ -4,7 +4,7 @@ metadata:
   name: {{ include "sam.fullname" . }}-rolebinding-sam
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.serviceAccount.name }}
+  name: {{ .Values.samDeployment.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role

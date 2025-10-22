@@ -1,105 +1,65 @@
-replicaCount: 1
+# Sam configuration
+sam:
+  enterprise: true
+  # DNS name configured in Agent Mesh (SAM) for accessing the web UI and API
+  # This should be a DNS-resolvable name pointing to the LoadBalancer IP
+  # assigned to the service by your cloud provider
+  dnsName: "dns-hostname-here" # e.g., sam.example.com
+  sessionSecretKey: "my-secret-key"
+  # The oidc configuration is required for enterprise mode
+  # If not using OIDC, set the oidc section to null or remove it
+  # and the authentication will be disabled
+  oauthProvider:
+    oidc:
+      issuer: "" # e.g., https://accounts.google.com, leave empty to turn off oidc.
+      clientId: "oidc-client-id-here" # e.g., your-client-id
+      clientSecret: "oidc-client-secret-here" # e.g., your-client-secret
 
-global:
-  persistence:
-    namespaceId: "solace-agent-mesh"
+  # User to role assignments for RBAC
+  authenticationRbac:
+    users:
+      - identity: "admin@example.com" # can be email, username, name, etc.
+        roles: ["sam_admin"]
+        description: "SAM Administrator Account"
+      - identity: "user1@example.com"
+        roles: ["sam_user"]
+        description: "Standard SAM User"
+
+# Solace Broker configuration
+# This is required to connect to provide connectivity to SAM components
+broker:
+  url: "wss://broker-url:port" # e.g., wss://mr2zq0g0f1.messaging.solace.cloud:443
+  clientUsername: "broker-username"
+  password: "broker-password"
+  vpn: "broker-vpn-name"
+
+# LLM Service configuration
+# This is required to connect to your LLM service (e.g., OpenAI)
+llmService:
+  planningModel: "planningModel" # e.g., "gpt-4o"
+  generalModel: "generalModel" # e.g., "gpt-4o"
+  reportModel: "reportModel" # e.g., "gpt-4o"
+  imageModel: "imageModel" # e.g., "dall-e-3"
+  transcriptionModel: "transcriptionModel" # e.g., "whisper-1"
+  llmServiceEndpoint: "https://api.openai.com/v1"
+  llmServiceApiKey: "your-llm-service-api-key"
+
+# Kubernetes Service configuration
+# This defines how the SAM service is exposed
+ingressService:
+  type: LoadBalancer
+  annotations: {}
+  # TLS/SSL configuration
+  # If enabled, TLS cert and key must be provided via --set-file during helm install
+  # to mount them as Kubernetes secrets
+  # The certificate must be a publicly trusted cert or a cert signed by a trusted CA
+  # Self-signed certs are not supported
+  tls:
     enabled: true
-  imageRegistry: ""
+    cert: ""
+    key: ""
+    passphrase: ""
 
-# Persistence layer configuration (subchart)
-# This is only used when global.persistence.enabled is true
-persistence-layer:
-  postgresql:
-    password: "postgres"  # PostgreSQL root password
-    persistence:
-      size: 10Gi
-  seaweedfs:
-    persistence:
-      size: 20Gi
-
-config:
-  # Built-in agents configuration
-  agents:
-    - name: web_request
-      enabled: true
-    - name: global
-      enabled: true
-    - name: image_processing
-      enabled: false
-    - name: slack
-      enabled: false
-  
-  # Built-in services configuration
-  services:
-    - name: embedding
-      enabled: false
-  
-  # Directory configurations
-  configDirectory: configs
-  modulesDirectory: modules
-  overwriteDirectory: overwrite
-  envFile: .env
-  
-  # Build configuration
-  build:
-    buildDirectory: build
-    extractEnvVars: true
-    logLevelOverride: INFO
-    orchestratorInstanceCount: 5
-  
-  # Runtime configuration
-  runtime:
-    fileService:
-      type: volume
-      maxTimeToLive: 86400
-      expirationCheckInterval: 600
-      volume:
-        directory: /tmp/solace-agent-mesh
-      bucket:
-        bucketName: ""
-        endpointUrl: ""
-        boto3Config:
-          regionName: ""
-          awsAccessKeyId: ""
-          awsSecretAccessKey: ""
-      customModule:
-        modulePath: ""
-        config: {}
-
-serviceAccount:
-  name: solace-agent-mesh-sa
-image:
-  repository: solace/solace-agent-mesh
-  tag: latest
-  pullPolicy: Always
-  imagePullSecrets: []
-
-agentDeployer:
-  image:
-    repository: ""
-    tag: ""
-    pullPolicy: Always
-
-rollout:
-  rollingUpdate: {}
-  strategy: Recreate
-
-podSecurityContext:
-  fsGroup: 10002
-  runAsUser: 10001
-securityContext:
-  allowPrivilegeEscalation: false
-nodeSelector: {}
-tolerations: []
-annotations: {}
-podAnnotations: {}
-podLabels: {}
-
-tls:
-  enabled: true
-  cert: ""
-  key: ""
-  passphrase: ""
 
 # Additional environment variables for SAM configuration
 # These are injected into the containers and used for runtime configuration
@@ -108,58 +68,98 @@ tls:
 environmentVariables: {}
   # Example custom variables:
   # CUSTOM_VAR: "value"
-  # ANOTHER_VAR: "another-value"
+# ANOTHER_VAR: "another-value"
+
+# Persistence configuration (for PostgreSQL and SeaweedFS)
+# This is required for enterprise mode to store data persistently
+# and survive pod restarts or rescheduling
+# Do not use this for production environment, bring you own sql and
+global:
+  persistence: #Check with SAM for a better name. Maybe default_persistence to say that we enable postgres and seaweedfs
+    namespaceId: "solace-agent-mesh"
+    enabled: false
+
+# SAM Deployment configuration
+samDeployment:
+  # Kubernetes Service Account configuration
+  # The service account must have permissions to create and manage resources
+  # such as Deployments, Services, ConfigMaps, and Secrets
+  serviceAccount:
+    name: solace-agent-mesh-sa
+
+  # imagePullSecret: ""
+
+  # Main SAM application container image
+  image:
+    repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
+    tag: 1.5.1-1
+    pullPolicy: Always
 
 
-service:
-  type: LoadBalancer
-  annotations: {}
-
-resources:
-  sam:
-    requests:
-      cpu: 100m
-      memory: 512Mi
-    limits:
-      cpu: 200m
-      memory: 768Mi
+  # Agent Deployer image (required for enterprise mode)
+  # This container is responsible for deploying and managing agents
   agentDeployer:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 100m
-      memory: 256Mi
+    image:
+      repository: gcr.io/gcp-maas-prod/sam-agent-deployer
+      tag: 1.1.1
+      pullPolicy: Always
 
-# SAM host info
-sam:
-  enterprise: false
-  hostname:
-  webUiPort:
-  callbackUrl:
-  idpUrl:
-  tlsCertPath: /app/certs/tls.crt
-  tlsKeyPath: /app/certs/tls.key
-  tlsPassphrase:
-  sessionSecretKey: please_change_me_in_production
-  # OIDC configuration (Enterprise only)
-  oidc:
-    issuer: "https://your-provider.com"
-    clientId: ""
-    clientSecret: ""
+  # Deployment strategy and update configuration
+  # use Recreate as SAM does not support multiple replicas
+  # at this time
+  rollout:
+    rollingUpdate: {}
+    strategy: RollingUpdate
 
-llm:
-  planningModel: openai/claude-3-7-sonnet
-  generalModel: openai/claude-3-7-sonnet
-  reportModel: openai/claude-3-7-sonnet
-  imageModel: dall-e-3
-  transcriptionModel: whisper-1
-  embeddingModel: openai/claude-3-7-sonnet
-  llmServiceEndpoint: https://llm.endpoint.com
-  llmServiceApiKey: llm-service-api-key
+  # Pod security context and container security context
+  podSecurityContext:
+    runAsUser: 10001
+    fsGroup: 10002
+  securityContext:
+    allowPrivilegeEscalation: false
 
-solaceBroker:
-  url: wss://localhost:8443
-  vpn: default
-  username: admin
-  password: admin
+  # Scheduling and labeling configuration
+  nodeSelector: {}
+  tolerations: []
+  annotations: {}
+  podAnnotations: {}
+  podLabels: {}
+
+  # Resource requests and limits for the SAM and Agent Deployer containers
+  # Adjust these values based on your workload and cluster capacity
+  resources:
+    sam:
+      requests:
+        cpu: 1000m
+        memory: 1024Mi
+      limits:
+        cpu: 2000m
+        memory: 2048Mi
+    agentDeployer:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+dataStores:
+  database:
+    protocol: "postgresql+psycopg2"
+    host: ""
+    port: "5432"
+    adminUsername: ""
+    adminPassword: ""
+  s3:
+    endpointUrl: ""
+    bucketName: ""
+    accessKey: ""
+    secretKey: ""
+
+persistence-layer:
+  postgresql:
+    commonLabels:
+      app.kubernetes.io/service: "database"
+  seaweedfs:
+    commonLabels:
+      app.kubernetes.io/service: "s3"

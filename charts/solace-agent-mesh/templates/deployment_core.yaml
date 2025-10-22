@@ -1,38 +1,43 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sam.fullname" . }}
+  name: {{ include "sam.fullname" . }}-core
   labels:
     {{- include "sam.labels" . | nindent 4 }}
+    app.kubernetes.io/component: core
   {{- include "sam.annotations" . | nindent 2 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
       {{- include "sam.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: core
   strategy:
-    {{- if eq .Values.rollout.strategy "RollingUpdate" }}
-    {{- with .Values.rollout.rollingUpdate }}
+    {{- if eq .Values.samDeployment.rollout.strategy "RollingUpdate" }}
+    {{- with .Values.samDeployment.rollout.rollingUpdate }}
     rollingUpdate:
       {{- toYaml . | nindent 6 }}
     {{- end }}
     {{- end }}
-    type: {{ .Values.rollout.strategy }}
+    type: {{ .Values.samDeployment.rollout.strategy }}
   template:
     metadata:
       annotations:
         {{- include "sam.podAnnotations" . | nindent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap_sam_config_files.yaml") . | sha256sum }}
+        checksum/env: {{ include (print $.Template.BasePath "/secret_sam_env.yaml") . | sha256sum }}
       labels:
         {{- include "sam.selectorLabels" . | nindent 8 }}
         {{- include "sam.podLabels" . | nindent 8 }}
+        app.kubernetes.io/component: core
     spec:
-      serviceAccountName: {{ .Values.serviceAccount.name }}
-      {{- if .Values.podSecurityContext }}
+      serviceAccountName: {{ .Values.samDeployment.serviceAccount.name }}
+      {{- if .Values.samDeployment.podSecurityContext }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.samDeployment.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- if .Values.global.persistence.enabled }}
       initContainers:
+      {{-  if .Values.global.persistence.enabled }}
         - name: s3-init
           image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}chrislusf/seaweedfs:3.97"
           envFrom:
@@ -65,11 +70,17 @@ spec:
               echo "s3.configure -apply -access_key=$S3_ACCESS_KEY -secret_key=$S3_SECRET_KEY -user=$S3_ACCESS_KEY -actions=Read,Write,List -buckets=$S3_BUCKET_NAME" | weed shell -master=$SEAWEEDFS_MASTER_ENDPOINT > /dev/null || exit 1
 
               echo "SeaweedFS S3 setup completed successfully!"
+      {{- end }}
         - name: db-init
           image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}postgres:18.0"
           envFrom:
+          {{ if .Values.global.persistence.enabled }}
             - secretRef:
                 name: {{ include "postgresql.secretName" (index .Subcharts "persistence-layer") }}
+          {{- else }}
+            - secretRef:
+                name: {{ include "sam.fullname" . }}-postgresql
+          {{- end }}
             - secretRef:
                 name: {{ include "sam.fullname" . }}-init-credentials
           command:
@@ -80,36 +91,26 @@ spec:
                 echo "Waiting for postgres..."
                 sleep 5
               done
-              psql -c "CREATE USER \"$WEB_UI_GATEWAY_DATABASE_USER\" WITH PASSWORD '$WEB_UI_GATEWAY_DATABASE_PASSWORD';" || true
-              psql -c "CREATE DATABASE \"$WEB_UI_GATEWAY_DATABASE_NAME\" OWNER \"$WEB_UI_GATEWAY_DATABASE_USER\";" || true
               psql -c "CREATE USER \"$ORCHESTRATOR_DATABASE_USER\" WITH PASSWORD '$ORCHESTRATOR_DATABASE_PASSWORD';" || true
               psql -c "CREATE DATABASE \"$ORCHESTRATOR_DATABASE_NAME\" OWNER \"$ORCHESTRATOR_DATABASE_USER\";" || true
-      {{- end }}
+              psql -c "CREATE USER \"$WEB_UI_GATEWAY_DATABASE_USER\" WITH PASSWORD '$WEB_UI_GATEWAY_DATABASE_PASSWORD';" || true
+              psql -c "CREATE DATABASE \"$WEB_UI_GATEWAY_DATABASE_NAME\" OWNER \"$WEB_UI_GATEWAY_DATABASE_USER\";" || true
       containers:
-        - name: sam
+        - name: sam-core
           ports:
+            - name: orchestrator
+              containerPort: 5002
             - name: webui-tls
               containerPort: 8443
             - name: webui
               containerPort: 8000
             - name: auth
               containerPort: 5050
-          env:
-            - name: ORCHESTRATOR_SESSION_SERVICE_TYPE
-              value: {{ if .Values.global.persistence.enabled }}"sql"{{ else }}"memory"{{ end }}
-            - name: WEB_UI_SESSION_SERVICE_TYPE
-              value: {{ if .Values.global.persistence.enabled }}"sql"{{ else }}"memory"{{ end }}
           envFrom:
             - secretRef:
-                name: {{ include "sam.fullname" . }}-config
-            {{- if .Values.global.persistence.enabled }}
+                name: {{ include "sam.fullname" . }}-environment
             - secretRef:
                 name: {{ include "sam.fullname" . }}-persistence
-            {{- end }}
-            {{- if .Values.environmentVariables }}
-            - secretRef:
-                name: {{ include "sam.fullname" . }}-env-vars
-            {{- end }}
           command:
             - solace-agent-mesh
             - run
@@ -117,25 +118,26 @@ spec:
             - /app/config/a2a_orchestrator.yaml
             - /app/config/webui_backend.yaml
             {{- if .Values.sam.enterprise }}
-            - /app/config/oauth2_server.yaml
+            - /app/config/enterprise_config.yaml
+            - /app/config/auth/oauth2_server.yaml
             {{- end }}
-          {{- if .Values.securityContext }}
+          {{- if .Values.samDeployment.securityContext }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.samDeployment.securityContext | nindent 12 }}
             runAsUser: 999
             runAsGroup: 999
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.resources }}
+          image: "{{ .Values.samDeployment.image.repository }}:{{ .Values.samDeployment.image.tag }}"
+          imagePullPolicy: {{ .Values.samDeployment.image.pullPolicy }}
+          {{- if .Values.samDeployment.resources }}
           resources:
-            {{- toYaml .Values.resources.sam | nindent 12 }}
+            {{- toYaml .Values.samDeployment.resources.sam | nindent 12 }}
           {{- end }}
           # If the application is consistently unavailable for 20 seconds, it is considered unhealthy and traffic is not sent to the pod
           readinessProbe:
             httpGet:
               path: /
-              {{- if .Values.tls.enabled }}
+              {{- if .Values.ingressService.tls.enabled }}
               port: webui-tls
               scheme: HTTPS
               {{- else }}
@@ -150,7 +152,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              {{- if .Values.tls.enabled }}
+              {{- if .Values.ingressService.tls.enabled }}
               port: webui-tls
               scheme: HTTPS
               {{- else }}
@@ -170,33 +172,11 @@ spec:
             - name: tls-certs
               mountPath: /app/certs
               readOnly: true
-        {{- if .Values.sam.enterprise }}
-        - name: agent-deployer
-          envFrom:
-            - configMapRef:
-                name: {{ include "sam.fullname" . }}-agent-deployer-config
-            - secretRef:
-                name: {{ include "sam.fullname" . }}-config
-          {{- if .Values.environmentVariables }}
-            - secretRef:
-                name: {{ include "sam.fullname" . }}-env-vars
-          {{- end }}
-          {{- if .Values.securityContext }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          {{- end }}
-          image: "{{ .Values.agentDeployer.image.repository }}:{{ .Values.agentDeployer.image.tag }}"
-          imagePullPolicy: {{ .Values.agentDeployer.image.pullPolicy }}
-          {{- if .Values.resources }}
-          resources:
-            {{- toYaml .Values.resources.agentDeployer | nindent 12 }}
-          {{- end }}
-        {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with .Values.samDeployment.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.samDeployment.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -215,8 +195,26 @@ spec:
               {{- if .Values.sam.enterprise }}
               - configMap:
                   name: {{ include "sam.fullname" $ }}-oauth2-server-config
+                  items:
+                    - key: oauth2_server.yaml
+                      path: auth/oauth2_server.yaml
               - configMap:
                   name: {{ include "sam.fullname" $ }}-oauth2-config
+                  items:
+                    - key: oauth2_config.yaml
+                      path: auth/oauth2_config.yaml
+              - configMap:
+                  name: {{ include "sam.fullname" $ }}-enterprise-config
+              - configMap:
+                  name: {{ include "sam.fullname" $ }}-role-definitions
+                  items:
+                    - key: role-to-scope-definitions.yaml
+                      path: auth/role-to-scope-definitions.yaml
+              - configMap:
+                  name: {{ include "sam.fullname" $ }}-user-roles
+                  items:
+                    - key: user-to-role-assignments.yaml
+                      path: auth/user-to-role-assignments.yaml
               {{- end }}
               - configMap:
                   name: {{ include "sam.fullname" $ }}-orchestrator-config

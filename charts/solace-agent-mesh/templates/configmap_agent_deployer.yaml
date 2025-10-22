@@ -6,3 +6,5 @@ metadata:
       {{- include "sam.labels" $ | nindent 4 }}
 data:
     HELM_CACHE_HOME: "/tmp"
+    ESCAPE_CONFIGURATION_FILE_SINGLE_QUOTE: "true"
+    JSON_OBJECT_OUTPUT_FORMAT: "json"

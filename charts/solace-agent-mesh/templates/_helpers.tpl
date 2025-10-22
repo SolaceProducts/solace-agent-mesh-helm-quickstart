@@ -42,21 +42,21 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "sam.podAnnotations" -}}
-{{- if .Values.podAnnotations }}
-{{- .Values.podAnnotations | toYaml }}
+{{- if .Values.samDeployment.podAnnotations }}
+{{- .Values.samDeployment.podAnnotations | toYaml }}
 {{- end }}
 {{- end }}
 
 {{- define "sam.podLabels" -}}
-{{- if .Values.podLabels }}
-{{- .Values.podLabels | toYaml }}
+{{- if .Values.samDeployment.podLabels }}
+{{- .Values.samDeployment.podLabels | toYaml }}
 {{- end }}
 {{- end }}
 
 {{- define "sam.annotations" -}}
-{{- if .Values.annotations }}
+{{- if .Values.samDeployment.annotations }}
 annotations:
-  {{- .Values.annotations | toYaml | nindent 2 }}
+  {{- .Values.samDeployment.annotations | toYaml | nindent 2 }}
 {{- end }}
 {{- end }}
 
@@ -71,10 +71,10 @@ annotations:
 {{- end }}
 
 {{- define "sam.hostname" -}}
-{{- if .Values.sam.hostname }}
-{{- printf "%s:%d" .Values.sam.hostname }}
+{{- if .Values.sam.dnsName }}
+{{- printf "%s:%d" .Values.sam.dnsName }}
 {{- else }}
-{{- fail "No valid SAM endpoint defined. Please set sam.hostname in values.yaml." }}
+{{- fail "No valid SAM endpoint defined. Please set sam.dnsName in values.yaml." }}
 {{- end }}
 {{- end }}
 
@@ -94,21 +94,42 @@ S3 configuration helpers - generates consistent S3 settings based on namespaceId
 Get S3 bucket name (same as namespaceId)
 */}}
 {{- define "sam.s3.bucketName" -}}
-{{- .Values.global.persistence.namespaceId }}
+{{- if .Values.global.persistence.enabled }}
+{{- printf "%s" .Values.global.persistence.namespaceId }}
+{{- else -}}
+{{- printf "%s" .Values.dataStores.s3.bucketName }}
+{{- end }}
 {{- end }}
 
 {{/*
 Get S3 access key (same as namespaceId)
 */}}
 {{- define "sam.s3.accessKey" -}}
-{{- .Values.global.persistence.namespaceId }}
+{{- if .Values.global.persistence.enabled }}
+{{- printf "%s" .Values.global.persistence.namespaceId }}
+{{- else -}}
+{{- printf "%s" .Values.dataStores.s3.accessKey }}
+{{- end }}
 {{- end }}
 
 {{/*
 Get S3 secret key (same as namespaceId)
 */}}
 {{- define "sam.s3.secretKey" -}}
-{{- .Values.global.persistence.namespaceId }}
+{{- if .Values.global.persistence.enabled }}
+{{- printf "%s" .Values.global.persistence.namespaceId }}
+{{- else -}}
+{{- printf "%s" .Values.dataStores.s3.secretKey }}
+{{- end }}
+{{- end }}
+
+
+{{- define "sam.s3.endpointUrl" -}}
+{{- if .Values.global.persistence.enabled }}
+{{- include "seaweedfs.s3url" (index .Subcharts "persistence-layer") }}
+{{- else -}}
+{{- printf "%s" .Values.dataStores.s3.endpointUrl }}
+{{- end }}
 {{- end }}
 
 {{/*
