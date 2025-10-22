@@ -2,7 +2,21 @@ apiVersion: v1
 entries:
   sam-agent:
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.911929067Z"
+    created: "2025-10-22T20:24:31.879750477Z"
+    description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
+      Cloud
+    digest: 17c06e7b386fb67e8b7b00affc908e0597bc641284a5cb958f0ab82677e52bc9
+    home: https://solace.cloud
+    maintainers:
+    - email: info@solace.com
+      name: Solace PubSub+ Cloud
+    name: sam-agent
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.0.3.tgz
+    version: 1.0.3
+  - apiVersion: v2
+    created: "2025-10-22T20:24:31.879266563Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
       Cloud
     digest: c0f82073b997b8b62121d2f5f5a3e03f427bfe10549e92e251f33a1a07e0008a
@@ -17,7 +31,25 @@ entries:
     version: 1.0.1
   solace-agent-mesh:
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.918197058Z"
+    created: "2025-10-22T20:24:31.888343588Z"
+    dependencies:
+    - condition: global.persistence.enabled
+      name: persistence-layer
+      repository: file:./charts
+      version: 1.5.0
+    description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
+    digest: 26b95b63b8ab705c0c3b1a1785dab8ad401224931e8a9895f471882a54c3e7b7
+    home: https://solace.cloud
+    maintainers:
+    - email: info@solace.com
+      name: Solace PubSub+ Cloud
+    name: solace-agent-mesh
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
+    created: "2025-10-22T20:24:31.886621631Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -35,7 +67,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.1.0.tgz
     version: 0.1.0
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.91533782Z"
+    created: "2025-10-22T20:24:31.883128188Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -53,7 +85,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.4.tgz
     version: 0.0.4
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.913760416Z"
+    created: "2025-10-22T20:24:31.881444943Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: 96619f787aa4ef7e47b8e41728ed9d57fdea6846677016829e01b6ed1422ab73
     home: https://solace.cloud
@@ -66,7 +98,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.3.tgz
     version: 0.0.3
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.913156325Z"
+    created: "2025-10-22T20:24:31.880897951Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: d039726f4e1134d6ac73e02565cb470631f266651f98f209c6adadc9897e3a45
     home: https://solace.cloud
@@ -79,7 +111,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.2.tgz
     version: 0.0.2
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.912576369Z"
+    created: "2025-10-22T20:24:31.880322926Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: e34ba11b2c0ae6fcda47d977fdaefa072986d8c879444666fe1a2427bb7dcad3
     home: https://solace.cloud
@@ -93,7 +125,7 @@ entries:
     version: 0.0.1
   solace-agent-mesh-agent:
   - apiVersion: v2
-    created: "2025-10-14T15:42:41.919109647Z"
+    created: "2025-10-22T20:24:31.888796535Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
       Cloud
     digest: 549a09079992938aa561a8e5a619a79ee8199fb17be4dec2407112f0e67f798c
@@ -106,4 +138,4 @@ entries:
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-agent-0.0.1.tgz
     version: 0.0.1
-generated: "2025-10-14T15:42:41.911286764Z"
+generated: "2025-10-22T20:24:31.878615136Z"
