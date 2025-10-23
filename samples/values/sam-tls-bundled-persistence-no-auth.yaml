@@ -1,0 +1,60 @@
+# Solace Agent Mesh (SAM) Custom Configuration
+# Replace all placeholder values with your actual configuration
+
+# SAM Core Configuration
+sam:
+  # DNS name for accessing SAM (must be DNS-resolvable and point to LoadBalancer IP)
+  dnsName: "sam.example.com"  # TODO: Replace with your actual DNS name
+  # Secret key for session management (generate a secure random string)
+  sessionSecretKey: "change-me-to-a-secure-random-string"
+
+# Solace Broker Configuration
+broker:
+  url: "wss://broker-url:port" # e.g., wss://mr2zq0g0f1.messaging.solace.cloud:443
+  clientUsername: "broker-username"
+  password: "broker-password"
+  vpn: "broker-vpn-name"
+
+# LLM Service Configuration (e.g., OpenAI)
+llmService:
+  planningModel: "planningModel" # e.g., "gpt-4o"
+  generalModel: "generalModel" # e.g., "gpt-4o"
+  reportModel: "reportModel" # e.g., "gpt-4o"
+  imageModel: "imageModel" # e.g., "dall-e-3"
+  transcriptionModel: "transcriptionModel" # e.g., "whisper-1"
+  llmServiceEndpoint: "https://api.openai.com/v1"
+  llmServiceApiKey: "your-llm-service-api-key"
+
+# Kubernetes Service Configuration
+# TODO: Update with the ingress configs from Luay
+ingressService:
+  type: LoadBalancer  # Options: LoadBalancer, ClusterIP, NodePort
+  annotations: {}
+  tls:
+    enabled: true
+    passphrase: "tls-passohrase"  # Optional: Add if your TLS key is encrypted
+
+# Persistence Configuration
+# Enable install of postgress and seaweedfs sql and artifacts stores in cluster
+global:
+  persistence:
+    enabled: true
+
+# SAM Deployment Configuration
+samDeployment:
+
+  imagePullSecret: ""
+
+  # Main SAM Image
+  image:
+    repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
+    tag: 1.5.1-1
+    pullPolicy: Always
+
+  # Agent Deployer image
+  # This container is responsible for deploying and managing agents
+  agentDeployer:
+    image:
+      repository: gcr.io/gcp-maas-prod/sam-agent-deployer
+      tag: 1.1.1
+      pullPolicy: Always
