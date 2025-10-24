@@ -137,7 +137,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              {{- if .Values.ingressService.tls.enabled }}
+              {{- if .Values.service.tls.enabled }}
               port: webui-tls
               scheme: HTTPS
               {{- else }}
@@ -152,7 +152,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              {{- if .Values.ingressService.tls.enabled }}
+              {{- if .Values.service.tls.enabled }}
               port: webui-tls
               scheme: HTTPS
               {{- else }}

@@ -45,10 +45,28 @@ llmService:
   llmServiceApiKey: "your-llm-service-api-key"
 
 # Kubernetes Service configuration
-# This defines how the SAM service is exposed
-ingressService:
-  type: LoadBalancer
+# This defines how the SAM service is exposed within the cluster
+service:
+  # Service type: ClusterIP (default), NodePort, or LoadBalancer
+  # ClusterIP: Internal cluster access only (use with port-forward or Ingress)
+  # NodePort: Exposes service on each node's IP at a static port
+  # LoadBalancer: Provisions a cloud load balancer (requires cloud provider or MetalLB)
+  type: ClusterIP
+
+  # Annotations for the service (e.g., cloud-specific load balancer configurations)
   annotations: {}
+    # Example for AWS:
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # Example for GCP:
+    # cloud.google.com/load-balancer-type: "Internal"
+
+  # NodePort configuration (only used when type: NodePort)
+  # Leave empty for automatic port assignment
+  nodePorts:
+    http: ""      # 30000-32767
+    https: ""     # 30000-32767
+    auth: ""      # 30000-32767
+
   # TLS/SSL configuration
   # If enabled, TLS cert and key must be provided via --set-file during helm install
   # to mount them as Kubernetes secrets
@@ -59,6 +77,51 @@ ingressService:
     cert: ""
     key: ""
     passphrase: ""
+
+# Kubernetes Ingress configuration
+# Ingress provides HTTP/HTTPS routing to the SAM service
+# This is the recommended approach for production environments
+# NOTE: When using Ingress, TLS termination typically happens at the Ingress/ALB level
+# using certificates managed by cert-manager or AWS ACM. You can disable service.tls
+# and use HTTP backends (port 80) for better performance.
+ingress:
+  enabled: false
+
+  # Ingress class name (e.g., nginx, traefik, gce, alb)
+  # Leave empty to use the cluster's default ingress class
+  className: ""
+
+  # Annotations for the ingress resource
+  # These vary by ingress controller
+  annotations: {}
+    # Example for NGINX Ingress Controller:
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    # Example for cert-manager (automatic TLS):
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Example for AWS ALB Ingress Controller:
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/id
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    # external-dns.alpha.kubernetes.io/hostname: sam.example.com
+
+  # Ingress hosts configuration
+  # Leave host empty for ALB/ELB ingress controllers (accepts all hostnames)
+  # Set host for name-based virtual hosting
+  hosts:
+    - host: ""  # Optional: set to sam.example.com for host-based routing
+      paths:
+        - path: /
+          pathType: Prefix
+          # Port name: webui, webui-tls, or auth
+          portName: webui-tls
+
+  # TLS configuration for ingress
+  tls: []
+    # - secretName: sam-tls
+    #   hosts:
+    #     - sam.example.com
 
 
 # Additional environment variables for SAM configuration

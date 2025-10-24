@@ -1,0 +1,126 @@
+# SAM Enterprise Mode with AWS ALB Ingress
+# This example shows how to deploy SAM with Ingress using AWS ALB for production use
+# TLS termination happens at ALB level using ACM certificates
+
+sam:
+  enterprise: true
+  dnsName: "sam.example.com"  # Your DNS hostname
+  sessionSecretKey: "change-me-to-secure-random-string"
+  oauthProvider:
+    oidc:
+      issuer: "https://login.microsoftonline.com/YOUR-TENANT-ID/v2.0"
+      clientId: "your-client-id"
+      clientSecret: "your-client-secret"
+
+broker:
+  url: "tcps://your-broker.messaging.solace.cloud:55443"
+  clientUsername: "your-username"
+  password: "your-password"
+  vpn: "your-vpn"
+
+llmService:
+  planningModel: "gpt-4o"
+  generalModel: "gpt-4o"
+  reportModel: "gpt-4o"
+  imageModel: "dall-e-3"
+  transcriptionModel: "whisper-1"
+  llmServiceEndpoint: "https://api.openai.com/v1"
+  llmServiceApiKey: "your-openai-api-key"
+
+# Service Configuration
+# Use ClusterIP when Ingress is enabled
+service:
+  type: ClusterIP
+  tls:
+    enabled: false  # ALB handles TLS termination
+
+# Ingress Configuration for AWS ALB
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    # SSL redirect from HTTP to HTTPS
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig":{ "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+
+    # ACM certificate ARN (replace with your certificate)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:ACCOUNT-ID:certificate/CERTIFICATE-ID
+
+    # ALB configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+
+    # Health check
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/success-codes: "200"
+
+    # SSL policy
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-Ext-2018-06
+
+    # Subnets for ALB (replace with your public subnets)
+    alb.ingress.kubernetes.io/subnets: subnet-xxxxx,subnet-yyyyy
+
+    # External DNS (optional - automatically creates Route53 DNS record)
+    external-dns.alpha.kubernetes.io/hostname: sam.example.com
+
+  hosts:
+    - host: ""  # Empty for ALB (accepts all traffic)
+      paths:
+        # OAuth2 Authentication endpoints → port 5050
+        - path: /login
+          pathType: Prefix
+          portName: auth
+        - path: /callback
+          pathType: Prefix
+          portName: auth
+        - path: /refresh_token
+          pathType: Prefix
+          portName: auth
+        - path: /user_info
+          pathType: Prefix
+          portName: auth
+        - path: /exchange-code
+          pathType: Prefix
+          portName: auth
+        - path: /is_token_valid
+          pathType: Prefix
+          portName: auth
+        # Web UI (catch-all) → port 80
+        - path: /
+          pathType: Prefix
+          portName: webui
+
+# Persistence Configuration
+global:
+  persistence:
+    namespaceId: "solace-agent-mesh"
+    enabled: true  # Uses built-in PostgreSQL and SeaweedFS
+
+# SAM Deployment Configuration
+samDeployment:
+  serviceAccount:
+    name: solace-agent-mesh-sa
+
+  # Use imagePullSecret if your images are in a private registry
+  # imagePullSecret: gcr-reg-secret
+
+  image:
+    repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
+    tag: 1.5.2-5
+    pullPolicy: Always
+
+  agentDeployer:
+    image:
+      repository: gcr.io/gcp-maas-prod/sam-agent-deployer
+      tag: 1.1.0
+      pullPolicy: Always
+
+# Persistence Layer Configuration
+persistence-layer:
+  postgresql:
+    persistence:
+      size: 20Gi
+  seaweedfs:
+    persistence:
+      size: 50Gi

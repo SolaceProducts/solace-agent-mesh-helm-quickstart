@@ -26,13 +26,12 @@ llmService:
   llmServiceApiKey: "your-llm-service-api-key"
 
 # Kubernetes Service Configuration
-# TODO: Update with the ingress configs from Luay
-ingressService:
+service:
   type: LoadBalancer  # Options: LoadBalancer, ClusterIP, NodePort
   annotations: {}
   tls:
     enabled: true
-    passphrase: "tls-passohrase"  # Optional: Add if your TLS key is encrypted
+    passphrase: ""  # Optional: Add if your TLS key is encrypted
 
 # Persistence Configuration
 # Enable install of postgress and seaweedfs sql and artifacts stores in cluster
