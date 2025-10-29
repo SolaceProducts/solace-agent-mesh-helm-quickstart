@@ -2,9 +2,9 @@ apiVersion: v1
 entries:
   sam-agent:
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.638392161Z"
+    created: "2025-10-29T17:39:48.840419332Z"
     description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
-    digest: 0e162972be35780f8ab6c55fe945401d33628d776a4a56ad86359827096d8175
+    digest: 9c8d8f95cd548fb6a4636b0b224fe64061c1c7fba3714a8e9c2d17a57824242d
     home: https://solace.com/products/agent-mesh/
     maintainers:
     - email: info@solace.com
@@ -15,7 +15,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.0.4.tgz
     version: 1.0.4
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.63793754Z"
+    created: "2025-10-29T17:39:48.839997445Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
       Cloud
     digest: 89bbd22e775090c918a0568ac02e8f65f98fb607959a24dd374bf1484705645a
@@ -29,7 +29,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.0.3.tgz
     version: 1.0.3
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.637461321Z"
+    created: "2025-10-29T17:39:48.839502583Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
       Cloud
     digest: c0f82073b997b8b62121d2f5f5a3e03f427bfe10549e92e251f33a1a07e0008a
@@ -44,14 +44,14 @@ entries:
     version: 1.0.1
   solace-agent-mesh:
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.649405023Z"
+    created: "2025-10-29T17:39:48.851149913Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
       repository: file:./charts
       version: 1.5.0
     description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
-    digest: 5467b8751fc0afe19bcf9ae0250f408e7e4e1471503087d0636e7b65b9f6d928
+    digest: bc411e2af3b9cef44a7c02f7966eae34e5e1f9c7cd0470060a137e6cbf6928be
     home: https://solace.com/products/agent-mesh/
     maintainers:
     - email: info@solace.com
@@ -62,7 +62,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.4.0.tgz
     version: 0.4.0
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.647861612Z"
+    created: "2025-10-29T17:39:48.849692469Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -80,7 +80,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.3.0.tgz
     version: 0.3.0
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.646360436Z"
+    created: "2025-10-29T17:39:48.848224614Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -98,7 +98,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.2.0.tgz
     version: 0.2.0
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.644944792Z"
+    created: "2025-10-29T17:39:48.84687027Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -116,7 +116,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.1.0.tgz
     version: 0.1.0
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.642342035Z"
+    created: "2025-10-29T17:39:48.844198804Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -134,7 +134,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.4.tgz
     version: 0.0.4
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.640109482Z"
+    created: "2025-10-29T17:39:48.842049238Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: 96619f787aa4ef7e47b8e41728ed9d57fdea6846677016829e01b6ed1422ab73
     home: https://solace.cloud
@@ -147,7 +147,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.3.tgz
     version: 0.0.3
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.639559301Z"
+    created: "2025-10-29T17:39:48.841518599Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: d039726f4e1134d6ac73e02565cb470631f266651f98f209c6adadc9897e3a45
     home: https://solace.cloud
@@ -160,7 +160,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-0.0.2.tgz
     version: 0.0.2
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.638995136Z"
+    created: "2025-10-29T17:39:48.840978674Z"
     description: A Helm chart for Solace Agent Mesh deployments in Solace Cloud
     digest: e34ba11b2c0ae6fcda47d977fdaefa072986d8c879444666fe1a2427bb7dcad3
     home: https://solace.cloud
@@ -174,7 +174,7 @@ entries:
     version: 0.0.1
   solace-agent-mesh-agent:
   - apiVersion: v2
-    created: "2025-10-29T17:35:34.649834689Z"
+    created: "2025-10-29T17:39:48.851496586Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Solace
       Cloud
     digest: 549a09079992938aa561a8e5a619a79ee8199fb17be4dec2407112f0e67f798c
@@ -187,4 +187,4 @@ entries:
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-agent-0.0.1.tgz
     version: 0.0.1
-generated: "2025-10-29T17:35:34.636824917Z"
+generated: "2025-10-29T17:39:48.838907108Z"
