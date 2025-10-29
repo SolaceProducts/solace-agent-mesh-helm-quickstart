@@ -54,6 +54,17 @@ service:
 global:
   persistence:
     enabled: true
+  # Uncomment to override image registry (e.g., to use GCR prod registry and avoid DockerHub rate limits)
+  # imageRegistry: gcr.io/gcp-maas-prod
+
+# Uncomment when using global.imageRegistry override to specify GCR-specific image tags
+# persistence-layer:
+#   postgresql:
+#     image:
+#       tag: "18.0-trixie"
+#   seaweedfs:
+#     image:
+#       tag: "3.97-compliant"
 
 # SAM Deployment Configuration
 samDeployment:
@@ -63,7 +74,7 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.5.1-1
+    tag: 1.6.1-5
     pullPolicy: Always
 
   # Agent Deployer image
@@ -71,5 +82,5 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.1
+      tag: 1.1.2
       pullPolicy: Always

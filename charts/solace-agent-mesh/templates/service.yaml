@@ -17,25 +17,25 @@ spec:
   publishNotReadyAddresses: true
   ports:
     - port: 443
-      targetPort: webui-tls
+      targetPort: 8443
       protocol: TCP
       name: webui-tls
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.https }}
       nodePort: {{ .Values.service.nodePorts.https }}
       {{- end }}
     - port: 80
-      targetPort: webui
+      targetPort: 8000
       protocol: TCP
       name: webui
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.http }}
       nodePort: {{ .Values.service.nodePorts.http }}
       {{- end }}
     - port: 5050
-      targetPort: auth
+      targetPort: 5050
       protocol: TCP
       name: auth
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.auth }}
       nodePort: {{ .Values.service.nodePorts.auth }}
       {{- end }}
   selector:
-    {{- include "sam.selectorLabels" . | nindent 4 }}
+    {{- include "sam.serviceSelectorLabels" . | nindent 4 }}

@@ -95,6 +95,8 @@ spec:
               psql -c "CREATE DATABASE \"$ORCHESTRATOR_DATABASE_NAME\" OWNER \"$ORCHESTRATOR_DATABASE_USER\";" || true
               psql -c "CREATE USER \"$WEB_UI_GATEWAY_DATABASE_USER\" WITH PASSWORD '$WEB_UI_GATEWAY_DATABASE_PASSWORD';" || true
               psql -c "CREATE DATABASE \"$WEB_UI_GATEWAY_DATABASE_NAME\" OWNER \"$WEB_UI_GATEWAY_DATABASE_USER\";" || true
+              psql -c "CREATE USER \"$PLATFORM_DATABASE_USER\" WITH PASSWORD '$PLATFORM_DATABASE_PASSWORD';" || true
+              psql -c "CREATE DATABASE \"$PLATFORM_DATABASE_NAME\" OWNER \"$PLATFORM_DATABASE_USER\";" || true
       containers:
         - name: sam-core
           ports:

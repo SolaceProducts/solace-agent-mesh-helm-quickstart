@@ -10,8 +10,9 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [Step 1: Add Helm Repository](#step-1-add-helm-repository)
-  - [Step 2: Prepare and update Helm values](#step-2-prepare-and-update-helm-values)
-  - [Step 3: Install the Chart](#step-3-install-the-chart)
+  - [Step 2: Configure Image Pull Secret](#step-2-configure-image-pull-secret)
+  - [Step 3: Prepare and update Helm values](#step-3-prepare-and-update-helm-values)
+  - [Step 4: Install the Chart](#step-4-install-the-chart)
 - [Accessing SAM](#accessing-sam)
   - [Network Configuration](#network-configuration)
 - [Upgrading](#upgrading)
@@ -31,27 +32,20 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
     - [Verifying User Access](#verifying-user-access)
   - [Disabling Authentication (Development Only)](#disabling-authentication-development-only)
 - [Troubleshooting](#troubleshooting)
-  - [Check Pod Status](#check-pod-status)
-  - [View Pod Logs](#view-pod-logs)
-  - [Check ConfigMaps](#check-configmaps)
-  - [Check Secrets](#check-secrets)
-  - [Verify Service](#verify-service)
-  - [Common Issues](#common-issues)
-- [Support](#support)
-- [Version](#version)
-- [Maintainers](#maintainers)
 
 ## Prerequisites
 
 - Kubernetes cluster (1.34+)
-- Helm 3.0+ (Download Helm from https://helm.sh/docs/intro/install/)
+- Helm 3.19.0+ (Download Helm from https://helm.sh/docs/intro/install/)
 - kubectl configured to communicate with your cluster
 - A Solace Event Broker instance
+  - [Deploy on Kubernetes using Helm](https://github.com/SolaceProducts/pubsubplus-kubernetes-helm-quickstart/blob/master/docs/PubSubPlusK8SDeployment.md)
+  - [Create an event broker on Solace Cloud](https://docs.solace.com/Cloud/ggs_create_first_service.htm)
 - LLM service credentials (e.g., OpenAI API key)
 - OIDC provider configured (for enterprise mode authentication)
-- TLS certificate and key files (publicly trusted or signed by trusted CA)
-- PostgreSQL database (version 18+, for production deployments with external persistence)
-- S3-Compatible Storage Services (Amazon S3)
+- TLS certificate and key files (only for LoadBalancer/NodePort without Ingress; not needed when using Ingress with ACM/cert-manager)
+- PostgreSQL database (version 17+, for production deployments with external persistence)
+- S3-compatible storage (e.g., Amazon S3, for production deployments with external persistence)
 
 ## Installation
 
@@ -66,35 +60,54 @@ helm repo add solace-agent-mesh https://solaceproducts.github.io/solace-agent-me
 helm repo update
 ```
 
-### Step 2: Prepare and update Helm values
- 
+### Step 2: Configure Image Pull Secret
+
+SAM requires access to container images. You have two options:
+
+**Option 1: Use Solace Cloud Image Pull Secret (Recommended)**
+
+Obtain the image pull secret from Solace Cloud following the instructions at [Download Image Pull Secret](https://docs.solace.com/Cloud/private_regions_tab.htm?Highlight=create%20a%20private%20region#Download).
+
+Create the secret in your Kubernetes cluster:
+
+```bash
+kubectl apply -f <path-to-downloaded-secret-file>.yaml
+```
+
+**Option 2: Use Your Own Container Registry**
+
+Download the SAM images from Solace Products, push them to your own container registry, and create an image pull secret for your registry:
+
+```bash
+kubectl create secret docker-registry my-registry-secret \
+  --docker-server=<your-registry-server> \
+  --docker-username=<your-username> \
+  --docker-password=<your-password> \
+  --docker-email=<your-email>
+```
+
+When using your own registry, you'll also need to update the image repository paths in your values file (Step 3).
+
+### Step 3: Prepare and update Helm values
+
 Choose one of the sample values files based on your deployment needs. Before proceeding, review the [Required Configuration](#required-configuration) section to understand what values you need to provide.
 
-Sample values:https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/tree/main/samples/values
+Sample values: [samples/values](./samples/values/)
 
-1. **`samples/values/sam-tls-oidc-bundled-persistence.yaml`** ⚠️ **Not Recommended for Production**
-   - **Use Case**: Quick start or demo deployment with OIDC authentication
-   - **Features**: TLS enabled, OIDC authentication, bundled PostgreSQL + SeaweedFS for session and artifact persistence
-   - **Best For**: Getting started quickly, proof-of-concept, or demo environments
-   - **Note**: While this provides full persistence for sessions and artifacts, the bundled database and storage are not suitable for production workloads
+1. **[`sam-tls-bundled-persistence-no-auth.yaml`](./samples/values/sam-tls-bundled-persistence-no-auth.yaml)** ⚠️ **Development Only**
+   - No authentication, bundled persistence
+   - For local development and testing only
 
-2. **`samples/values/sam-tls-oidc-customer-provided-persistence.yaml`** ⭐ **Recommended for Production**
-   - **Use Case**: Production deployment with your own managed database and S3 storage
-   - **Features**: TLS enabled, OIDC authentication, external PostgreSQL + S3 for session and artifact persistence
-   - **Best For**: Enterprise deployments with existing database/storage infrastructure
+2. **[`sam-tls-oidc-bundled-persistence.yaml`](./samples/values/sam-tls-oidc-bundled-persistence.yaml)** - **POC/Demo**
+   - OIDC authentication, bundled persistence
+   - For quick start, proof-of-concept, or demo environments
+   - **Note**: When using bundled persistence in managed cloud providers, configure regional node pools (one per availability zone) and a default StorageClass with `volumeBindingMode: WaitForFirstConsumer` to prevent scheduling failures
 
-3. **`samples/values/sam-tls-bundled-persistence-no-auth.yaml`** ⚠️ **Development Only**
-   - **Use Case**: Development/testing environment
-   - **Features**: TLS enabled, no authentication, bundled PostgreSQL + SeaweedFS for session and artifact persistence
-   - **Best For**: Local development and testing
-   - **Note**: Not recommended for production use due to disabled authentication
+3. **[`sam-tls-oidc-customer-provided-persistence.yaml`](./samples/values/sam-tls-oidc-customer-provided-persistence.yaml)** ⭐ **Production**
+   - OIDC authentication, external PostgreSQL + S3
+   - For production deployments with managed database/storage
 
-4. **TLS Configuration** (`service.tls` section):
-   - TLS certificate file (e.g., `tls.crt`) - only if using LoadBalancer/NodePort
-   - TLS key file (e.g., `tls.key`)
-   - Optional passphrase if key is encrypted
-   - **Note**: When using Ingress, TLS is managed at the Ingress level (see [Network Configuration Guide](docs/NETWORK_CONFIGURATION.md))
-> **Note**: For production deployments, we strongly recommend using `sam-tls-oidc-customer-provided-persistence.yaml` with your own managed PostgreSQL and S3-compatible storage services. This provides better scalability, reliability, and separation of concerns compared to bundled persistence services.
+> **Note**: TLS certificates are only required when using `service.type: LoadBalancer` or `NodePort`. When using Ingress, TLS is managed at the Ingress level (see [Network Configuration Guide](docs/NETWORK_CONFIGURATION.md)).
 
 Copy your chosen template and customize it:
 
@@ -110,11 +123,13 @@ cp samples/values/sam-tls-oidc-bundled-persistence.yaml custom-values.yaml
 - `sam.authenticationRbac.users`: User email addresses and roles
 - `broker.*`: Your Solace broker credentials
 - `llmService.*`: Your LLM service credentials
+- `samDeployment.imagePullSecret`: **Required** - Name of the image pull secret created in Step 2 (e.g., `solace-image-pull-secret` or `my-registry-secret`)
+- `samDeployment.image.repository`: Image repository path (if using your own registry from Step 2, Option 2)
 - `samDeployment.image.tag`: SAM application image version (if using specific version)
+- `samDeployment.agentDeployer.image.repository`: Agent deployer image repository path (if using your own registry from Step 2, Option 2)
 - `samDeployment.agentDeployer.image.tag`: Agent deployer image version (if using specific version)
-- `samDeployment.imagePullSecret`: Image pull secret name (if using private registry)
 
-### Step 3: Install the Chart
+### Step 4: Install the Chart
 
 Install using Helm with your custom values and TLS certificates:
 
@@ -125,7 +140,7 @@ helm install agent-mesh solace-agent-mesh/solace-agent-mesh \
   --set-file service.tls.key=/path/to/tls.key
 ```
 
-To install a specific version:
+To install a specific version (see [available releases](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/tree/gh-pages)):
 
 ```bash
 # List available versions
@@ -133,7 +148,7 @@ helm search repo solace-agent-mesh/solace-agent-mesh --versions
 
 # Install specific version
 helm install agent-mesh solace-agent-mesh/solace-agent-mesh \
-  --version 1.0.0 \
+  --version 0.0.3 \
   -f custom-values.yaml \
   --set-file service.tls.cert=/path/to/tls.crt \
   --set-file service.tls.key=/path/to/tls.key \
@@ -142,64 +157,117 @@ helm install agent-mesh solace-agent-mesh/solace-agent-mesh \
 
 **Note**: TLS certificates are only required when using `service.type: LoadBalancer` or `NodePort`. When using Ingress, TLS is managed at the Ingress level. See the [Network Configuration Guide](docs/NETWORK_CONFIGURATION.md) for details.
 
-### Step 3: Verify Deployment
+### Step 5: Verify Deployment
 
 Check the deployment status:
 
 ```bash
-helm install agent-mesh solace-agent-mesh/solace-agent-mesh \
-  -f custom-values.yaml \
-  --set-file service.tls.cert=/path/to/tls.crt \
-  --set-file service.tls.key=/path/to/tls.key \
-  --set service.tls.passphrase="your-passphrase"
+# Check Helm release status
+helm status agent-mesh
+
+# Check pod status
+kubectl get pods -l app.kubernetes.io/instance=agent-mesh
 ```
 
 ## Accessing SAM
 
-SAM can be accessed through different methods depending on your deployment configuration.
+SAM can be accessed through LoadBalancer, NodePort, Ingress, or port-forward depending on your service configuration.
 
-### Network Configuration
-
-**For detailed network configuration options, see the [Network Configuration Guide](docs/NETWORK_CONFIGURATION.md).**
-
-**Quick access methods:**
-
-#### Using LoadBalancer (default)
-```bash
-# Get external IP/hostname
-kubectl get svc agent-mesh-solace-agent-mesh -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-
-# Configure DNS to point to this address
-# Access at: https://<your-hostname>
-```
-
-#### Using Ingress (recommended for production)
-```bash
-# Check ingress status
-kubectl get ingress agent-mesh-solace-agent-mesh
-
-# Access at the configured hostname (e.g., https://sam.example.com)
-```
-
-#### Using Port-Forward (development)
-```bash
-# Forward port to local machine
-kubectl port-forward svc/agent-mesh-solace-agent-mesh 8443:443
-
-# Access at: https://localhost:8443
-```
-
-For production deployments, we recommend using **Ingress with ALB/NGINX** for cost-effective and feature-rich HTTP routing. See the [Network Configuration Guide](docs/NETWORK_CONFIGURATION.md) for complete setup instructions.
+For detailed network configuration options, access methods, and production deployment recommendations, see the [Network Configuration Guide](docs/NETWORK_CONFIGURATION.md).
 
 ## Upgrading
 
-To upgrade the deployment with new values:
+Before upgrading, always update your Helm repository to get the latest chart versions:
+
+```bash
+helm repo update solace-agent-mesh
+```
+
+### Upgrading SAM Core Deployment
+
+To upgrade your SAM core deployment, you can reuse your existing Helm values and apply updates on top of them.
+
+#### Option 1: Retrieve and Update Existing Values
+
+Get your current deployment values and save them to a file:
+
+```bash
+helm get values agent-mesh -n <namespace> > current-values.yaml
+```
+
+Review and edit `current-values.yaml` to make your desired changes, then upgrade:
 
 ```bash
 helm upgrade agent-mesh solace-agent-mesh/solace-agent-mesh \
+  -n <namespace> \
+  -f current-values.yaml \
+  --set-file service.tls.cert=/path/to/tls.crt \
+  --set-file service.tls.key=/path/to/tls.key
+```
+
+#### Option 2: Reuse Existing Values with Specific Overrides
+
+Reuse all existing values and override specific values:
+
+```bash
+# Upgrade while reusing existing values and updating specific settings
+helm upgrade agent-mesh solace-agent-mesh/solace-agent-mesh \
+  -n <namespace> \
+  --reuse-values \
+  --set samDeployment.image.tag=new-version \
+  --set-file service.tls.cert=/path/to/tls.crt \
+  --set-file service.tls.key=/path/to/tls.key
+```
+
+#### Option 3: Use Your Original Values File with Updates
+
+If you still have your original `custom-values.yaml` file, update it with any new changes and upgrade:
+
+```bash
+helm upgrade agent-mesh solace-agent-mesh/solace-agent-mesh \
+  -n <namespace> \
   -f custom-values.yaml \
   --set-file service.tls.cert=/path/to/tls.crt \
   --set-file service.tls.key=/path/to/tls.key
+```
+
+**Note:** After upgrading, verify the deployment status:
+
+```bash
+kubectl rollout status deployment/agent-mesh-core -n <namespace>
+kubectl get pods -n <namespace> -l app.kubernetes.io/instance=agent-mesh
+```
+
+### Upgrading SAM Agents
+
+To upgrade individual agents deployed through SAM, use the agent's release name and update the image tag:
+
+**Important:** If the agent chart name has changed between versions, you may need to delete and recreate the agent deployment instead of upgrading. See [Common Issues](#common-issues) below.
+
+```bash
+# Update Helm repository first
+helm repo update solace-agent-mesh
+
+# Upgrade the agent with new image version
+helm upgrade -i <agent-release-name> solace-agent-mesh/sam-agent \
+  -n <namespace> \
+  --reuse-values \
+  --set image.tag=<new-version>
+```
+
+**Example:**
+```bash
+helm upgrade -i sam-agent-0a42a319-13a8-4b31-b696-9f750d5c6a20 solace-agent-mesh/sam-agent \
+  -n fwanssa \
+  --reuse-values \
+  --set image.tag=1.6.1-5
+```
+
+**Verify the agent upgrade:**
+
+```bash
+kubectl get deployment <agent-release-name> -n <namespace>
+kubectl logs deployment/<agent-release-name> -n <namespace> --tail=50
 ```
 
 ## Uninstalling
@@ -210,10 +278,10 @@ To uninstall the chart:
 helm uninstall agent-mesh
 ```
 
-Note: This will not delete PersistentVolumeClaims. To delete them:
+Note: This will not delete PersistentVolumeClaims when using bundled persistence. To delete them:
 
 ```bash
-kubectl delete pvc -l app=solace-agent-mesh
+kubectl delete pvc -l app.kubernetes.io/instance=agent-mesh
 ```
 
 ## Configuration Options
@@ -236,11 +304,6 @@ Before deploying SAM, you must configure the following required values in your `
    - `planningModel`, `generalModel`, `reportModel`, `imageModel`, `transcriptionModel`: Model names
    - `llmServiceEndpoint`: LLM service API endpoint (e.g., `https://api.openai.com/v1`)
    - `llmServiceApiKey`: API key for LLM service
-
-4. **TLS Configuration** (`service.tls` section):
-   - TLS certificate file (e.g., `tls.crt`)
-   - TLS key file (e.g., `tls.key`)
-   - Optional passphrase if key is encrypted
 
 ### Service Configuration
 
@@ -288,11 +351,9 @@ samDeployment:
 
 SAM requires persistent storage for session data and artifacts. You can choose between two persistence options:
 
-#### Option 1: Using Built-in Persistence Layer
+#### Option 1: Using Built-in Persistence Layer (Dev/POC Only)
 
-The chart can deploy PostgreSQL and SeaweedFS for persistence. This is suitable for quick start, demos, and proof-of-concept deployments.
-
-**⚠️ Not recommended for production use.** For production deployments, use Option 2 with managed database and storage services.
+**⚠️ Not recommended for production.** The chart can deploy PostgreSQL and SeaweedFS for quick start, demos, and proof-of-concept deployments.
 
 To enable built-in persistence:
 
@@ -303,23 +364,13 @@ global:
     namespaceId: "solace-agent-mesh" # Must be unique per SAM installation
 ```
 
-This will automatically deploy PostgreSQL and SeaweedFS as part of the Helm chart installation.
+#### Option 2: Using External PostgreSQL and S3 ⭐ Recommended for Production
 
-#### Option 2: Using External PostgreSQL and S3 (Recommended for Production)
+Use your own managed PostgreSQL database and S3-compatible storage for better scalability, reliability, and separation of concerns.
 
-For production deployments, use your own managed PostgreSQL database and S3-compatible storage. This provides better scalability, reliability, and separation of concerns.
+**Note:** Built-in persistence is disabled by default (`global.persistence.enabled: false`), so you only need to configure your external data stores.
 
-This configuration applies to both the main SAM deployment and any agents deployed through the SAM UI.
-
-**Step 1: Disable the built-in persistence layer**
-
-```yaml
-global:
-  persistence:
-    enabled: false
-```
-
-**Step 2: Configure external database and S3 storage**
+**Configure external database and S3 storage**
 
 Configure your external PostgreSQL and S3 storage using the `dataStores` section in your `values.yaml`.
 
@@ -345,23 +396,6 @@ dataStores:
     accessKey: "your-s3-access-key"
     secretKey: "your-s3-secret-key"
 ```
-
-**How Agent Database Creation Works:**
-
-When you deploy an agent through the SAM UI:
-1. The agent chart uses service discovery to find secrets labeled with the matching `namespaceId` (see `charts/solace-agent-mesh-agent/templates/_helpers.tpl:75-121`)
-2. The agent chart's init container (see `charts/solace-agent-mesh-agent/templates/deployment.yaml:34-51`) automatically:
-   - Discovers the PostgreSQL secret and reads admin credentials
-   - Connects to PostgreSQL using the admin credentials
-   - Creates a new database for the agent (e.g., `<namespaceId>_<agentId>_agent`)
-   - Creates a dedicated database user with the same naming pattern
-   - Grants appropriate permissions
-3. The agent container uses the created database credentials
-
-**Important:** The agent chart relies on Kubernetes secret discovery with specific labels. Ensure:
-- Secrets have the correct `app.kubernetes.io/namespace-id` label matching your `global.persistence.namespaceId`
-- Secrets have the correct `app.kubernetes.io/service` label (`postgresql` or `seaweedfs`)
-- Secrets are in the same namespace where agents will be deployed
 
 ### Role-Based Access Control (RBAC)
 
@@ -521,7 +555,7 @@ After updating RBAC configuration:
 
 1. **Check pod logs** to verify configuration loaded:
 ```bash
-kubectl logs -l app.kubernetes.io/name=solace-agent-mesh --tail=50
+kubectl logs -l app.kubernetes.io/instance=agent-mesh --tail=50
 ```
 
 2. **Test user access** by logging in as different users through the SAM web UI
@@ -557,68 +591,6 @@ When the `issuer` is empty, SAM will run without authentication.
 
 ## Troubleshooting
 
-### Check Pod Status
+For troubleshooting common issues with SAM deployments, see the [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
 
-```bash
-kubectl get pods -l app.kubernetes.io/name=solace-agent-mesh
-```
-
-### View Pod Logs
-
-```bash
-kubectl logs -l app.kubernetes.io/name=solace-agent-mesh --tail=100 -f
-```
-
-### Check ConfigMaps
-
-```bash
-kubectl get configmaps -l app.kubernetes.io/name=solace-agent-mesh
-```
-
-### Check Secrets
-
-```bash
-kubectl get secrets -l app.kubernetes.io/name=solace-agent-mesh
-```
-
-### Verify Service
-
-```bash
-kubectl get service -l app.kubernetes.io/name=solace-agent-mesh
-```
-
-### Common Issues
-
-**Pod fails to start:**
-- Check that the image is accessible
-- Verify resource limits are sufficient
-- Review pod events: `kubectl describe pod <pod-name>`
-
-**Cannot connect to Solace broker:**
-- Verify `solaceBroker.url` is correct and reachable
-- Check credentials in `solaceBroker.username` and `solaceBroker.password`
-- Ensure the VPN name is correct
-
-**TLS issues:**
-- Verify certificate and key are properly formatted
-- Check certificate expiration
-- Ensure certificate matches the hostname
-
-**Database connection issues:**
-- Verify database URLs are correct
-- Check database credentials
-- Ensure databases exist and are accessible from the cluster
-
-## Support
-
-For issues, questions, or contributions:
-- Email: info@solace.com
-- Website: https://solace.cloud
-
-## Version
-
-**Chart Version**: 0.0.3
-
-## Maintainers
-
-- Solace PubSub+ Cloud (info@solace.com)
+For issues, questions, or contributions, please open an issue in [GitHub Issues](../../issues).

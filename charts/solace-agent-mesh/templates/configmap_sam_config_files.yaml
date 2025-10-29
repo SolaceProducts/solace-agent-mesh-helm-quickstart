@@ -254,6 +254,8 @@ data:
           namespace: ${NAMESPACE}
           session_secret_key: ${SESSION_SECRET_KEY, please_change_me_in_production}
 
+          model: *general_model
+
           gateway_id: ${WEBUI_GATEWAY_ID}
           fastapi_host: ${FASTAPI_HOST, 127.0.0.1}
           fastapi_port: ${FASTAPI_PORT, 8000}
@@ -287,7 +289,7 @@ data:
           frontend_use_authorization: ${FRONTEND_USE_AUTHORIZATION, false}
           frontend_redirect_url: ${FRONTEND_REDIRECT_URL, ""}
           {{- if .Values.sam.enterprise }}
-          frontend_feature_enablement: { agentBuilder: true, agentConnectors: true }
+          frontend_feature_enablement: { agentBuilder: true, agentBuilderEdit: true }
           {{- end }}
 
           external_auth_callback_uri: ${EXTERNAL_AUTH_CALLBACK, http://localhost:8000/api/v1/auth/callback}
@@ -303,6 +305,9 @@ data:
             type: "${WEB_UI_SESSION_SERVICE_TYPE}"
             database_url: "${WEB_UI_GATEWAY_DATABASE_URL}"
             default_behavior: "PERSISTENT"
+
+          platform_service:
+            database_url: "${PLATFORM_DATABASE_URL}"
 {{- if .Values.sam.enterprise }}
 ---
 apiVersion: v1
@@ -353,9 +358,16 @@ metadata:
 data:
   user-to-role-assignments.yaml: |
     users:
+{{- if .Values.sam.authenticationRbac.users }}
 {{- range .Values.sam.authenticationRbac.users }}
       {{ .identity }}:
         roles: {{ .roles | toJson }}
         description: "{{ .description }}"
+{{- end }}
+{{- else }}
+      # No users configured - add users via sam.authenticationRbac.users in values.yaml
+      admin@example.com:
+        roles: ["sam_admin"]
+        description: "Default SAM Administrator Account - UPDATE IN VALUES"
 {{- end }}
 {{- end }}

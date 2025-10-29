@@ -50,11 +50,7 @@ service:
     passphrase: ""  # Optional: Add if your TLS key is encrypted
 
 # Persistence Configuration
-# Enable install of postgress and seaweedfs sql and artifacts stores in cluster
-global:
-  persistence:
-    enabled: false
-
+# Uses external PostgreSQL and S3-compatible storage (recommended for production)
 dataStores:
   database:
     protocol: "postgresql+psycopg2"
@@ -76,7 +72,7 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.5.1-1
+    tag: 1.6.1-5
     pullPolicy: Always
 
   # Agent Deployer image
@@ -84,5 +80,5 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.1
+      tag: 1.1.2
       pullPolicy: Always

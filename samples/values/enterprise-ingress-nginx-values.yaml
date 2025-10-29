@@ -82,10 +82,19 @@ ingress:
         - sam.example.com
 
 # Persistence Configuration
-global:
-  persistence:
-    namespaceId: "solace-agent-mesh"
-    enabled: true
+# Uses external PostgreSQL and S3-compatible storage (recommended for production)
+dataStores:
+  database:
+    protocol: "postgresql+psycopg2"
+    host: ""
+    port: "5432"
+    adminUsername: ""
+    adminPassword: ""
+  s3:
+    endpointUrl: ""
+    bucketName: ""
+    accessKey: ""
+    secretKey: ""
 
 # SAM Deployment Configuration
 samDeployment:
@@ -94,20 +103,11 @@ samDeployment:
 
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.5.2-5
+    tag: 1.6.1-5
     pullPolicy: Always
 
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.0
+      tag: 1.1.2
       pullPolicy: Always
-
-# Persistence Layer Configuration
-persistence-layer:
-  postgresql:
-    persistence:
-      size: 20Gi
-  seaweedfs:
-    persistence:
-      size: 50Gi

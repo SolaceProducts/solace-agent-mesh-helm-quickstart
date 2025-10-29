@@ -1021,6 +1021,4 @@ ingress:
 
 ## Support
 
-For network configuration questions or issues:
-- Email: info@solace.com
-- GitHub Issues: https://github.com/SolaceDev/sam-kubernetes/issues
+For network configuration questions or issues, please open an issue in [GitHub Issues](../../../issues).
