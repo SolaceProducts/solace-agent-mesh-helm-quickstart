@@ -1,8 +1,8 @@
 apiVersion: v2
 name: sam-agent
-description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
+description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Kubernetes
 type: application
-version: 1.0.4
+version: 1.0.0
 maintainers:
   - name: Solace
     email: info@solace.com

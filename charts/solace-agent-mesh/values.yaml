@@ -1,12 +1,17 @@
 # Sam configuration
 sam:
   enterprise: true
+  # Authentication and authorization configuration
+  # When enabled, SAM will enforce RBAC authorization
+  # When disabled (for dev/quickstart), all users have admin access
+  authentication:
+    enabled: true
   # DNS name configured in Agent Mesh (SAM) for accessing the web UI and API
   # This should be a DNS-resolvable name pointing to the LoadBalancer IP
   # assigned to the service by your cloud provider
   dnsName: "dns-hostname-here" # e.g., sam.example.com
   sessionSecretKey: "my-secret-key"
-  # The oidc configuration is required for enterprise mode
+  # The oidc configuration is required for enterprise mode with authentication
   # If not using OIDC, set the oidc section to null or remove it
   # and the authentication will be disabled
   oauthProvider:
@@ -155,7 +160,7 @@ samDeployment:
   # Main SAM application container image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.6.1-5
+    tag: 1.6.3
     pullPolicy: Always
 
 
@@ -166,6 +171,7 @@ samDeployment:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
       tag: 1.1.2
       pullPolicy: Always
+    chartUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.0.0.tgz"
 
   # Deployment strategy and update configuration
   # use Recreate as SAM does not support multiple replicas
@@ -213,6 +219,7 @@ dataStores:
     port: "5432"
     adminUsername: ""
     adminPassword: ""
+    supabaseTenantId: ""  # Supabase project ID (qualifies usernames as username.projectid when using Supabase's connection pooler on an IPv4 network)
   s3:
     endpointUrl: ""
     bucketName: ""

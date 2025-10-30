@@ -97,7 +97,9 @@ Generate DATABASE_URL from helpers and discovered PostgreSQL secret
 {{- if not $pgSecret }}{{- fail (printf "PostgreSQL secret '%s' not found" $secretName) }}{{- end }}
 {{- $pgHost := index $pgSecret.data "PGHOST" | b64dec }}
 {{- $pgPort := index $pgSecret.data "PGPORT" | b64dec }}
-{{- printf "postgresql+psycopg2://%s:%s@%s:%s/%s" (include "sam.database.agentUser" .) (include "sam.database.agentPassword" .) $pgHost $pgPort (include "sam.database.agentName" .) }}
+{{- $baseUsername := include "sam.database.agentUser" . }}
+{{- $qualifiedUsername := include "sam.database.qualifyUsername" (dict "username" $baseUsername "context" .) }}
+{{- printf "postgresql+psycopg2://%s:%s@%s:%s/%s" $qualifiedUsername (include "sam.database.agentPassword" .) $pgHost $pgPort (include "sam.database.agentName" .) }}
 {{- end }}
 
 {{/*
@@ -181,6 +183,24 @@ Get S3 secret key (same as namespaceId)
 {{/*
 Database configuration helpers - generates agent database settings based on namespaceId
 */}}
+
+{{/*
+Qualify username with Supabase tenant ID if configured (for Supabase connection pooler)
+Reads SUPABASE_TENANT_ID from the discovered PostgreSQL secret
+*/}}
+{{- define "sam.database.qualifyUsername" -}}
+{{- $secretName := include "sam.postgresql.secretName" .context }}
+{{- $pgSecret := (lookup "v1" "Secret" .context.Release.Namespace $secretName) }}
+{{- $supabaseTenantId := "" }}
+{{- if $pgSecret }}
+{{- $supabaseTenantId = index $pgSecret.data "SUPABASE_TENANT_ID" | default "" | b64dec }}
+{{- end }}
+{{- if $supabaseTenantId }}
+{{- printf "%s.%s" .username $supabaseTenantId }}
+{{- else }}
+{{- .username }}
+{{- end }}
+{{- end }}
 
 {{/*
 Get agent database name (namespaceId_agentId_agent)

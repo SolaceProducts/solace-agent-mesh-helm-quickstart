@@ -106,13 +106,13 @@ CONFIGURATION
 
 Service Type: {{ .Values.service.type }}
 {{- if .Values.service.tls.enabled }}
-TLS Enabled: Yes
+Service TLS: Yes
 {{- else }}
-TLS Enabled: No (Consider enabling for production)
+Service TLS: No
 {{- end }}
 {{- if .Values.sam.enterprise }}
 Mode: Enterprise
-{{- if .Values.sam.oauthProvider.oidc }}
+{{- if and .Values.sam.oauthProvider.oidc.issuer (ne .Values.sam.oauthProvider.oidc.issuer "") }}
 OAuth2/OIDC: Enabled
 {{- else }}
 OAuth2/OIDC: Disabled
@@ -126,17 +126,17 @@ MONITORING
 ================================================================================
 
 Check pod status:
-  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "sam.name" . }}
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
 
 View logs:
-  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "sam.name" . }} -f
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
 
 ================================================================================
 DOCUMENTATION
 ================================================================================
 
 For more information, visit:
-  https://github.com/SolaceDev/sam-kubernetes
+  https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart
 
 For SAM documentation:
-  https://docs.solace.com/
+  https://docs.solace.com/Agentic-AI/agent-mesh.htm

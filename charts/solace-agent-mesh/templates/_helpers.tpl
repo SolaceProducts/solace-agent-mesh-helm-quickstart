@@ -143,6 +143,18 @@ Database configuration helpers - generates consistent database settings based on
 */}}
 
 {{/*
+Qualify username with Supabase tenant ID if configured (for Supabase connection pooler)
+Usage: include "sam.database.qualifyUsername" (dict "username" "myuser" "context" $)
+*/}}
+{{- define "sam.database.qualifyUsername" -}}
+{{- if and .context.Values.dataStores.database.supabaseTenantId (not .context.Values.global.persistence.enabled) }}
+{{- printf "%s.%s" .username .context.Values.dataStores.database.supabaseTenantId }}
+{{- else }}
+{{- .username }}
+{{- end }}
+{{- end }}
+
+{{/*
 Get WebUI database name (namespaceId_webui)
 */}}
 {{- define "sam.database.webuiName" -}}

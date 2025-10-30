@@ -3,6 +3,8 @@
 
 # SAM Core Configuration
 sam:
+  # Enable enterprise features (agent builder, RBAC, etc.)
+  enterprise: true
   # DNS name for accessing SAM (must be DNS-resolvable and point to LoadBalancer IP)
   dnsName: "sam.example.com"  # TODO: Replace with your actual DNS name
   # Secret key for session management (generate a secure random string)
@@ -54,6 +56,7 @@ service:
 global:
   persistence:
     enabled: true
+    namespaceId: "solace-agent-mesh-bundled"  # Must be unique per SAM installation - change for your deployment
   # Uncomment to override image registry (e.g., to use GCR prod registry and avoid DockerHub rate limits)
   # imageRegistry: gcr.io/gcp-maas-prod
 
@@ -62,9 +65,15 @@ global:
 #   postgresql:
 #     image:
 #       tag: "18.0-trixie"
+#     persistence:
+#       storageClassName: "gp3"  # Optional: specify storage class (e.g., gp3 for AWS)
+#     serviceAccountName: solace-agent-mesh-sa  # Required for image pull access when using custom registry
 #   seaweedfs:
 #     image:
 #       tag: "3.97-compliant"
+#     persistence:
+#       storageClassName: "gp3"  # Optional: specify storage class (e.g., gp3 for AWS)
+#     serviceAccountName: solace-agent-mesh-sa  # Required for image pull access when using custom registry
 
 # SAM Deployment Configuration
 samDeployment:
@@ -74,7 +83,7 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.6.1-5
+    tag: 1.6.3
     pullPolicy: Always
 
   # Agent Deployer image

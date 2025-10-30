@@ -1,9 +1,6 @@
 # Solace Agent Mesh (SAM) - Helm Chart
 
 This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes.
-> :warning: This Helm chart is **not ready yet** for production use.
-> We are actively developing and testing this chart. Expect breaking changes and incomplete functionality.
-> Please check back later or follow the repository for updates.
 
 ## Table of Contents
 
@@ -22,7 +19,7 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
   - [Service Configuration](#service-configuration)
   - [Resource Limits](#resource-limits)
   - [Persistence](#persistence)
-    - [Option 1: Using Built-in Persistence Layer](#option-1-using-built-in-persistence-layer)
+    - [Option 1: Using Built-in Persistence Layer (Dev/POC Only)](#option-1-using-built-in-persistence-layer-devpoc-only)
     - [Option 2: Using External PostgreSQL and S3 (Recommended for Production)](#option-2-using-external-postgresql-and-s3-recommended-for-production)
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
     - [Understanding Roles and Permissions](#understanding-roles-and-permissions)
@@ -30,7 +27,6 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
     - [Option 2: Updating the Helm Chart (Persistent Changes)](#option-2-updating-the-helm-chart-persistent-changes)
     - [Common Scope Patterns](#common-scope-patterns)
     - [Verifying User Access](#verifying-user-access)
-  - [Disabling Authentication (Development Only)](#disabling-authentication-development-only)
 - [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
@@ -49,7 +45,7 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
 
 ## Installation
 
-Before installing SAM, review the available [configuration templates](#step-2-choose-a-configuration-template) and customize the values according to your deployment requirements. For detailed configuration options, see the [Configuration Options](#configuration-options) section.
+Before installing SAM, review the available [configuration templates](#step-3-prepare-and-update-helm-values) and customize the values according to your deployment requirements. For detailed configuration options, see the [Configuration Options](#configuration-options) section.
 
 ### Step 1: Add Helm Repository
 
@@ -59,6 +55,7 @@ Add the Solace Agent Mesh Helm repository:
 helm repo add solace-agent-mesh https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/
 helm repo update
 ```
+Helm chart releases are accessible at: https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/tree/gh-pages
 
 ### Step 2: Configure Image Pull Secret
 
@@ -95,7 +92,8 @@ Choose one of the sample values files based on your deployment needs. Before pro
 Sample values: [samples/values](./samples/values/)
 
 1. **[`sam-tls-bundled-persistence-no-auth.yaml`](./samples/values/sam-tls-bundled-persistence-no-auth.yaml)** ⚠️ **Development Only**
-   - No authentication, bundled persistence
+   - Enterprise features enabled (agent builder), no authentication/RBAC
+   - Bundled persistence (PostgreSQL + SeaweedFS)
    - For local development and testing only
 
 2. **[`sam-tls-oidc-bundled-persistence.yaml`](./samples/values/sam-tls-oidc-bundled-persistence.yaml)** - **POC/Demo**
@@ -148,7 +146,7 @@ helm search repo solace-agent-mesh/solace-agent-mesh --versions
 
 # Install specific version
 helm install agent-mesh solace-agent-mesh/solace-agent-mesh \
-  --version 0.0.3 \
+  --version 0.4.0 \
   -f custom-values.yaml \
   --set-file service.tls.cert=/path/to/tls.crt \
   --set-file service.tls.key=/path/to/tls.key \
@@ -242,7 +240,7 @@ kubectl get pods -n <namespace> -l app.kubernetes.io/instance=agent-mesh
 
 To upgrade individual agents deployed through SAM, use the agent's release name and update the image tag:
 
-**Important:** If the agent chart name has changed between versions, you may need to delete and recreate the agent deployment instead of upgrading. See [Common Issues](#common-issues) below.
+**Important:** If the agent chart name has changed between versions, you may need to delete and recreate the agent deployment instead of upgrading. See [Troubleshooting](#troubleshooting) below.
 
 ```bash
 # Update Helm repository first
@@ -260,7 +258,7 @@ helm upgrade -i <agent-release-name> solace-agent-mesh/sam-agent \
 helm upgrade -i sam-agent-0a42a319-13a8-4b31-b696-9f750d5c6a20 solace-agent-mesh/sam-agent \
   -n fwanssa \
   --reuse-values \
-  --set image.tag=1.6.1-5
+  --set image.tag=1.6.3
 ```
 
 **Verify the agent upgrade:**
@@ -360,11 +358,11 @@ To enable built-in persistence:
 ```yaml
 global:
   persistence:
-    enabled: true
-    namespaceId: "solace-agent-mesh" # Must be unique per SAM installation
+    enabled: true  # This must be explicitly enabled
+    namespaceId: "solace-agent-mesh"  # Must be unique per SAM installation
 ```
 
-#### Option 2: Using External PostgreSQL and S3 ⭐ Recommended for Production
+#### Option 2: Using External PostgreSQL and S3 (Recommended for Production)
 
 Use your own managed PostgreSQL database and S3-compatible storage for better scalability, reliability, and separation of concerns.
 
@@ -374,13 +372,14 @@ Use your own managed PostgreSQL database and S3-compatible storage for better sc
 
 Configure your external PostgreSQL and S3 storage using the `dataStores` section in your `values.yaml`.
 
-**Important:** The database credentials must have admin privileges (CREATEDB and CREATEROLE) because SAM's init container uses them to automatically create database protocol and users for both the main application and any agents deployed through the SAM UI.
+**Important:** The database credentials must have admin privileges (`SUPERUSER` recommended; or at minimum `CREATEROLE` and `CREATEDB`) because SAM's init container uses them to automatically create users and databases for both the main application and any agents deployed through the SAM UI.
 
 ```yaml
 # Disable built-in persistence layer
 global:
   persistence:
-    enabled: false
+    enabled: false  # Optional (this is false by default)
+    namespaceId: "solace-agent-mesh"  # Must be unique per SAM installation
 
 # Configure external PostgreSQL and S3 for SAM application
 dataStores:
@@ -396,6 +395,28 @@ dataStores:
     accessKey: "your-s3-access-key"
     secretKey: "your-s3-secret-key"
 ```
+
+**Supabase with Connection Pooler**
+
+If you're using Supabase with the connection pooler (required for IPv4 networks or if you haven't purchased the IPv4 addon for the Direct connection option), you'll need to provide your Supabase tenant ID. This is shown in your Supabase connection options as `postgresql://postgres.<SUPABASE_TENANT_ID>:[YOUR-PASSWORD]@...`:
+
+```yaml
+dataStores:
+  database:
+    protocol: "postgresql+psycopg2"
+    host: "aws-1-us-east-1.pooler.supabase.com"  # Connection pooler endpoint
+    port: "5432"
+    adminUsername: "postgres"
+    adminPassword: "your-supabase-postgres-password"
+    supabaseTenantId: "your-project-id"  # Extract from Supabase connection options
+  s3:
+    endpointUrl: "https://your-project-id.storage.supabase.co/storage/v1/s3"
+    bucketName: "your-bucket-name"
+    accessKey: "your-supabase-s3-access-key"
+    secretKey: "your-supabase-s3-secret-key"
+```
+
+**Note**: If you're using Supabase's Direct Connection with IPv4 addon, you do not need the `supabaseTenantId` field.
 
 ### Role-Based Access Control (RBAC)
 
@@ -414,6 +435,8 @@ By default, two roles are provided:
 #### Option 1: Updating ConfigMaps Directly (Quick Changes)
 
 For quick changes to running deployments, you can edit the ConfigMaps directly:
+
+**⚠️ Warning:** Changes made directly to ConfigMaps will be overwritten on the next Helm upgrade. To persist changes, update the Helm chart (Option 2).
 
 **1. Edit role definitions:**
 
@@ -447,7 +470,7 @@ kubectl edit configmap <release-name>-user-roles
 # Example: kubectl edit configmap agent-mesh-user-roles
 ```
 
-**Note:** User identifiers can be an email address, username, name. They are **case-sensitive**, so ensure exact matches with your OIDC provider's user identifiers.
+**Note:** Email addresses in user-to-role-assignments must all be lowercase. 
 
 Modify the `user-to-role-assignments.yaml` data:
 
@@ -470,8 +493,6 @@ data:
 kubectl rollout restart deployment/<release-name>
 # Example: kubectl rollout restart deployment/solace-agent-mesh
 ```
-
-**Note:** Changes made directly to ConfigMaps will be overwritten on the next Helm upgrade. To persist changes, update the Helm chart (Option 2).
 
 #### Option 2: Updating the Helm Chart (Persistent Changes)
 
@@ -568,26 +589,6 @@ kubectl describe configmap <release-name>-user-roles
 ```
 
 For more details on RBAC configuration, see the [SAM RBAC Setup Guide](http://solacelabs.github.io/solace-agent-mesh/docs/documentation/enterprise/rbac-setup-guide).
-
-### Disabling Authentication (Development Only)
-
-**⚠️ Warning:** Disabling authentication is only suitable for development and testing environments. Never use this in production.
-
-For development environments, you can disable authentication by setting the `issuer` to an empty string:
-
-```yaml
-sam:
-  enterprise: true
-  dnsName: "sam.example.com"
-  sessionSecretKey: "your-secret-key"
-  oauthProvider:
-    oidc:
-      issuer: ""  # Leave empty to disable OIDC authentication
-      clientId: ""
-      clientSecret: ""
-```
-
-When the `issuer` is empty, SAM will run without authentication.
 
 ## Troubleshooting
 

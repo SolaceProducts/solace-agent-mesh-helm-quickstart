@@ -3,6 +3,8 @@
 
 # SAM Core Configuration
 sam:
+  # Enable enterprise features (agent builder, RBAC, etc.)
+  enterprise: true
   # DNS name for accessing SAM (must be DNS-resolvable and point to LoadBalancer IP)
   dnsName: "sam.example.com"  # TODO: Replace with your actual DNS name
   # Secret key for session management (generate a secure random string)
@@ -51,6 +53,10 @@ service:
 
 # Persistence Configuration
 # Uses external PostgreSQL and S3-compatible storage (recommended for production)
+global:
+  persistence:
+    namespaceId: "solace-agent-mesh-external"  # Must be unique per SAM installation - change for your deployment
+
 dataStores:
   database:
     protocol: "postgresql+psycopg2"
@@ -72,7 +78,7 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.6.1-5
+    tag: 1.6.3
     pullPolicy: Always
 
   # Agent Deployer image
