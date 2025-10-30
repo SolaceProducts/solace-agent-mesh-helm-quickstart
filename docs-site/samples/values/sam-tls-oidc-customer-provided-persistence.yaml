@@ -72,7 +72,7 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.6.1-5
+    tag: 1.6.3
     pullPolicy: Always
 
   # Agent Deployer image
