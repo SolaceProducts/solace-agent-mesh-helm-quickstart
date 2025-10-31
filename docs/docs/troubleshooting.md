@@ -1,3 +1,8 @@
+---
+sidebar_position: 3
+title: Troubleshooting
+---
+
 # Troubleshooting SAM Deployments
 
 This guide provides solutions for common issues when deploying and running Solace Agent Mesh (SAM).
@@ -64,4 +69,4 @@ kubectl get service -l app.kubernetes.io/instance=agent-mesh
 
 ## Getting Help
 
-For issues, questions, or contributions, please open an issue in [GitHub Issues](../../../issues).
+For issues, questions, or contributions, please open an issue in [GitHub Issues](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/issues).

@@ -1,3 +1,8 @@
+---
+sidebar_position: 2
+title: Network Configuration
+---
+
 # SAM Network Configuration Guide
 
 This guide explains the different ways to expose SAM (Solace Agent Mesh) to the internet and when to use each approach.
@@ -1021,4 +1026,4 @@ ingress:
 
 ## Support
 
-For network configuration questions or issues, please open an issue in [GitHub Issues](../../../issues).
+For network configuration questions or issues, please open an issue in [GitHub Issues](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/issues).
