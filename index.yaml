@@ -2,9 +2,9 @@ apiVersion: v1
 entries:
   sam-agent:
   - apiVersion: v2
-    created: "2025-10-30T17:39:20.320102008Z"
+    created: "2025-10-31T19:25:46.949989722Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Kubernetes
-    digest: 6cb6556e3e383519666424a84954b5e77102775d9f98e1ae0581ddac10797567
+    digest: a6b163023950bb8b96198d6ba194fe1c658cd73dc33c3becb0a3373038037967
     home: https://solace.com/products/agent-mesh/
     maintainers:
     - email: info@solace.com
@@ -16,14 +16,14 @@ entries:
     version: 1.0.0
   solace-agent-mesh:
   - apiVersion: v2
-    created: "2025-10-30T17:39:20.323190636Z"
+    created: "2025-10-31T19:25:46.951604423Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
       repository: file:./charts
       version: 1.5.0
     description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
-    digest: 2e96c3bcc74b3b16b0df23ddf631fd03f96587a159798e69eb04b43e727eb160
+    digest: c60cef79110bc9c508b4eb25b4fefd316adf3477a2fb8de9941b1f77a7e6dcde
     home: https://solace.com/products/agent-mesh/
     maintainers:
     - email: info@solace.com
@@ -33,4 +33,4 @@ entries:
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.0.0.tgz
     version: 1.0.0
-generated: "2025-10-30T17:39:20.318947889Z"
+generated: "2025-10-31T19:25:46.949314969Z"
