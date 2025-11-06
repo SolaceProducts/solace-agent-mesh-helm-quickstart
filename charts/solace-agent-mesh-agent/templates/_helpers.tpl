@@ -217,8 +217,21 @@ Get agent database user (namespaceId_agentId_agent)
 {{- end }}
 
 {{/*
-Get agent database password (same as user for simplicity)
+Get agent database password
+- External mode: uses applicationPassword discovered from parent chart's secret
+- Embedded mode: uses legacy pattern (namespaceId_agentId_agent)
 */}}
 {{- define "sam.database.agentPassword" -}}
+{{- $secretName := include "sam.postgresql.secretName" . }}
+{{- $pgSecret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+{{- if $pgSecret }}
+{{- $applicationPassword := index $pgSecret.data "APPLICATION_PASSWORD" | default "" | b64dec }}
+{{- if $applicationPassword }}
+{{- $applicationPassword }}
+{{- else }}
 {{- printf "%s_%s_agent" .Values.global.persistence.namespaceId .Values.agentId }}
+{{- end }}
+{{- else }}
+{{- printf "%s_%s_agent" .Values.global.persistence.namespaceId .Values.agentId }}
+{{- end }}
 {{- end }}

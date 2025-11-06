@@ -1,9 +1,12 @@
 replicaCount: 1
 
 global:
+  # Optional: Override the default image registry for all images
+  # Uncomment to use internal GCR registry (requires imagePullSecret)
+  # imageRegistry: gcr.io/gcp-maas-prod
+
   persistence:
     namespaceId: "solace-agent-mesh"
-  imageRegistry: ""
 
 agentId: ""
 

@@ -22,6 +22,15 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Validate that applicationPassword is provided when using external persistence
+*/}}
+{{- define "sam.validateApplicationPassword" -}}
+{{- if and (not .Values.global.persistence.enabled) (not .Values.dataStores.database.applicationPassword) }}
+{{- fail "dataStores.database.applicationPassword is required when using external persistence (global.persistence.enabled=false)" }}
+{{- end }}
+{{- end }}
+
+{{/*
 Common labels
 */}}
 {{- define "sam.labels" -}}
@@ -169,10 +178,16 @@ Get WebUI database user (namespaceId_webui)
 {{- end }}
 
 {{/*
-Get WebUI database password (same as user for simplicity)
+Get WebUI database password
+- External mode: uses applicationPassword from values
+- Embedded mode: uses legacy pattern (namespaceId_webui)
 */}}
 {{- define "sam.database.webuiPassword" -}}
+{{- if .Values.global.persistence.enabled }}
 {{- printf "%s_webui" .Values.global.persistence.namespaceId }}
+{{- else }}
+{{- required "dataStores.database.applicationPassword is required for external persistence" .Values.dataStores.database.applicationPassword }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -190,10 +205,16 @@ Get Orchestrator database user (namespaceId_orchestrator)
 {{- end }}
 
 {{/*
-Get Orchestrator database password (same as user for simplicity)
+Get Orchestrator database password
+- External mode: uses applicationPassword from values
+- Embedded mode: uses legacy pattern (namespaceId_orchestrator)
 */}}
 {{- define "sam.database.orchestratorPassword" -}}
+{{- if .Values.global.persistence.enabled }}
 {{- printf "%s_orchestrator" .Values.global.persistence.namespaceId }}
+{{- else }}
+{{- required "dataStores.database.applicationPassword is required for external persistence" .Values.dataStores.database.applicationPassword }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -211,8 +232,14 @@ Get Platform database user (namespaceId_platform)
 {{- end }}
 
 {{/*
-Get Platform database password (same as user for simplicity)
+Get Platform database password
+- External mode: uses applicationPassword from values
+- Embedded mode: uses legacy pattern (namespaceId_platform)
 */}}
 {{- define "sam.database.platformPassword" -}}
+{{- if .Values.global.persistence.enabled }}
 {{- printf "%s_platform" .Values.global.persistence.namespaceId }}
+{{- else }}
+{{- required "dataStores.database.applicationPassword is required for external persistence" .Values.dataStores.database.applicationPassword }}
+{{- end }}
 {{- end }}

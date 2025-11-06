@@ -72,7 +72,7 @@ spec:
               echo "SeaweedFS S3 setup completed successfully!"
       {{- end }}
         - name: db-init
-          image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}postgres:18.0"
+          image: "{{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}postgres:18.0-trixie"
           envFrom:
           {{ if .Values.global.persistence.enabled }}
             - secretRef:

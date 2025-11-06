@@ -81,9 +81,14 @@ ingress:
       hosts:
         - sam.example.com
 
-# Persistence Configuration
-# Uses external PostgreSQL and S3-compatible storage (recommended for production)
+# Global Configuration
 global:
+  # Use internal GCR registry for all images (requires imagePullSecret)
+  # Comment out to use default Docker Hub registry
+  imageRegistry: gcr.io/gcp-maas-prod
+
+  # Persistence Configuration
+  # Uses external PostgreSQL and S3-compatible storage (recommended for production)
   persistence:
     namespaceId: "solace-agent-mesh-nginx"  # Must be unique per SAM installation - change for your deployment
 
@@ -94,6 +99,9 @@ dataStores:
     port: "5432"
     adminUsername: ""
     adminPassword: ""
+    # Application database user password (REQUIRED for external persistence)
+    # This single password will be used for all database users created by SAM
+    applicationPassword: ""
   s3:
     endpointUrl: ""
     bucketName: ""
@@ -107,11 +115,11 @@ samDeployment:
 
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.6.3
+    tag: 1.14.9
     pullPolicy: Always
 
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.2
+      tag: 1.1.3
       pullPolicy: Always

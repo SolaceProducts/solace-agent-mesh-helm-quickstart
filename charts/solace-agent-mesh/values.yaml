@@ -4,7 +4,7 @@ sam:
   # Authentication and authorization configuration
   # When enabled, SAM will enforce RBAC authorization
   # When disabled (for dev/quickstart), all users have admin access
-  authentication:
+  authorization:
     enabled: true
   # DNS name configured in Agent Mesh (SAM) for accessing the web UI and API
   # This should be a DNS-resolvable name pointing to the LoadBalancer IP
@@ -138,13 +138,18 @@ environmentVariables: {}
   # CUSTOM_VAR: "value"
 # ANOTHER_VAR: "another-value"
 
-# Persistence configuration (for PostgreSQL and SeaweedFS)
-# This is required for enterprise mode to store data persistently
-# and survive pod restarts or rescheduling
-# Do not use this for production environment, bring you own sql and
+# Global Configuration
 global:
-  persistence: #Check with SAM for a better name. Maybe default_persistence to say that we enable postgres and seaweedfs
+  # Optional: Override the default image registry for all images
+  # Uncomment to use internal GCR registry (requires imagePullSecret)
+  # imageRegistry: gcr.io/gcp-maas-prod
+
+  # Persistence configuration
+  persistence:
+    # Unique identifier for this SAM installation (used for database/user scoping in all persistence modes)
     namespaceId: "solace-agent-mesh"
+    # Enable embedded PostgreSQL and SeaweedFS (for dev/POC only, not for production)
+    # For production, use external datastores and set this to false
     enabled: false
 
 # SAM Deployment configuration
@@ -160,7 +165,7 @@ samDeployment:
   # Main SAM application container image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.6.3
+    tag: 1.14.9
     pullPolicy: Always
 
 
@@ -169,7 +174,7 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.2
+      tag: 1.1.3
       pullPolicy: Always
     chartUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.0.0.tgz"
 
@@ -219,6 +224,9 @@ dataStores:
     port: "5432"
     adminUsername: ""
     adminPassword: ""
+    # Application database user password (required when using external persistence with global.persistence.enabled=false)
+    # This single password will be used for all database users (webui, orchestrator, platform, and all agents)
+    applicationPassword: ""
     supabaseTenantId: ""  # Supabase project ID (qualifies usernames as username.projectid when using Supabase's connection pooler on an IPv4 network)
   s3:
     endpointUrl: ""

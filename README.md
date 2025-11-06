@@ -83,7 +83,9 @@ kubectl create secret docker-registry my-registry-secret \
   --docker-email=<your-email>
 ```
 
-When using your own registry, you'll also need to update the image repository paths in your values file (Step 3).
+When using your own registry, you have two options:
+- Set `global.imageRegistry` to override the registry for all images (e.g., `gcr.io/my-project`)
+- Or update individual image repository paths in your values file (Step 3)
 
 ### Step 3: Prepare and update Helm values
 
@@ -121,6 +123,7 @@ cp samples/values/sam-tls-oidc-bundled-persistence.yaml custom-values.yaml
 - `sam.authenticationRbac.users`: User email addresses and roles
 - `broker.*`: Your Solace broker credentials
 - `llmService.*`: Your LLM service credentials
+- `global.imageRegistry`: **Optional** - Override registry for all images (e.g., `gcr.io/my-project`)
 - `samDeployment.imagePullSecret`: **Required** - Name of the image pull secret created in Step 2 (e.g., `solace-image-pull-secret` or `my-registry-secret`)
 - `samDeployment.image.repository`: Image repository path (if using your own registry from Step 2, Option 2)
 - `samDeployment.image.tag`: SAM application image version (if using specific version)
@@ -258,7 +261,7 @@ helm upgrade -i <agent-release-name> solace-agent-mesh/sam-agent \
 helm upgrade -i sam-agent-0a42a319-13a8-4b31-b696-9f750d5c6a20 solace-agent-mesh/sam-agent \
   -n fwanssa \
   --reuse-values \
-  --set image.tag=1.6.3
+  --set image.tag=1.14.9
 ```
 
 **Verify the agent upgrade:**
@@ -353,6 +356,11 @@ SAM requires persistent storage for session data and artifacts. You can choose b
 
 **⚠️ Not recommended for production.** The chart can deploy PostgreSQL and SeaweedFS for quick start, demos, and proof-of-concept deployments.
 
+**Security Note:** The embedded persistence uses predictable passwords based on the `namespaceId` pattern (e.g., `{namespaceId}_webui`). This is acceptable for development environments because:
+- The PostgreSQL and SeaweedFS services are **NOT exposed outside the cluster** (ClusterIP only)
+- These services should **NEVER be exposed externally** via NodePort or LoadBalancer
+- The predictable passwords are only accessible within the Kubernetes cluster
+
 To enable built-in persistence:
 
 ```yaml
@@ -372,7 +380,14 @@ Use your own managed PostgreSQL database and S3-compatible storage for better sc
 
 Configure your external PostgreSQL and S3 storage using the `dataStores` section in your `values.yaml`.
 
-**Important:** The database credentials must have admin privileges (`SUPERUSER` recommended; or at minimum `CREATEROLE` and `CREATEDB`) because SAM's init container uses them to automatically create users and databases for both the main application and any agents deployed through the SAM UI.
+**Important:**
+- The database `adminUsername` and `adminPassword` must have admin privileges (`SUPERUSER` recommended; or at minimum `CREATEROLE` and `CREATEDB`) because SAM's init container uses them to automatically create users and databases for both the main application and any agents deployed through the SAM UI.
+- The `applicationPassword` field is **REQUIRED** when using external persistence. This single password will be used for all database users created by SAM (webui, orchestrator, platform, and all agents), replacing the default pattern-based passwords.
+
+**⚠️ Password Rotation Limitation:**
+Once database users are created for a given `namespaceId`, the `applicationPassword` **cannot be changed**. Password rotation is not currently supported. If you need to change the password, you must either:
+- Use a new `namespaceId` (which creates new databases and users), or
+- Manually update the passwords directly in the database
 
 ```yaml
 # Disable built-in persistence layer
@@ -389,6 +404,7 @@ dataStores:
     port: "5432"
     adminUsername: "your-db-admin-user"  # Must have CREATEDB and CREATEROLE privileges
     adminPassword: "your-db-admin-password"
+    applicationPassword: "your-secure-application-password"  # REQUIRED: Password for all application database users
   s3:
     endpointUrl: "your-s3-endpoint-url"
     bucketName: "your-bucket-name"
@@ -408,6 +424,7 @@ dataStores:
     port: "5432"
     adminUsername: "postgres"
     adminPassword: "your-supabase-postgres-password"
+    applicationPassword: "your-secure-application-password"  # REQUIRED: Password for all application database users
     supabaseTenantId: "your-project-id"  # Extract from Supabase connection options
   s3:
     endpointUrl: "https://your-project-id.storage.supabase.co/storage/v1/s3"
