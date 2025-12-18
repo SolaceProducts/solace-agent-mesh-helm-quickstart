@@ -53,7 +53,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*
 Inject extra environment populated by secrets, if populated
 */}}
-{{- define "vault.extraSecretEnvironmentVars" -}}
+{{- define "sam.extraSecretEnvironmentVars" -}}
 {{- if .extraSecretEnvironmentVars -}}
 {{- range .extraSecretEnvironmentVars }}
 - name: {{ .envName }}

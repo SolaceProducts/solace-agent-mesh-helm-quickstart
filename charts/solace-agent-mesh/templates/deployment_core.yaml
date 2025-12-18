@@ -48,7 +48,7 @@ spec:
           # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
           {{- if .Values.extraSecretEnvironmentVars }}
           env:
-          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- include "sam.extraSecretEnvironmentVars" .Values | nindent 12 }}
           {{- end }}
           command:
             - sh
@@ -91,7 +91,7 @@ spec:
           # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
           {{- if .Values.extraSecretEnvironmentVars }}
           env:
-          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- include "sam.extraSecretEnvironmentVars" .Values | nindent 12 }}
           {{- end }}
           command:
             - "sh"
@@ -158,7 +158,7 @@ spec:
           # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
           {{- if .Values.extraSecretEnvironmentVars }}
           env:
-          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- include "sam.extraSecretEnvironmentVars" .Values | nindent 12 }}
           {{- end }}
           command:
             - solace-agent-mesh

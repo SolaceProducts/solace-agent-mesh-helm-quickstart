@@ -269,7 +269,7 @@ helm upgrade -i <agent-release-name> solace-agent-mesh/sam-agent \
 helm upgrade -i sam-agent-0a42a319-13a8-4b31-b696-9f750d5c6a20 solace-agent-mesh/sam-agent \
   -n fwanssa \
   --reuse-values \
-  --set image.tag=1.14.9
+  --set image.tag=v1.24.1
 ```
 
 **Verify the agent upgrade:**
