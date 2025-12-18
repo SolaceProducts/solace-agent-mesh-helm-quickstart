@@ -2,7 +2,20 @@ apiVersion: v1
 entries:
   sam-agent:
   - apiVersion: v2
-    created: "2025-11-06T20:49:49.230768702Z"
+    created: "2025-12-18T17:34:19.755438762Z"
+    description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Kubernetes
+    digest: 797f41c36d47fdaf9232e145346bea252d7cfadf3b86608680cdfd2ceb1e8c68
+    home: https://solace.com/products/agent-mesh/
+    maintainers:
+    - email: info@solace.com
+      name: Solace
+    name: sam-agent
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.1.0.tgz
+    version: 1.1.0
+  - apiVersion: v2
+    created: "2025-12-18T17:34:19.754942126Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Kubernetes
     digest: f6331babf67e8a73912ad4ec0721048b5b03909549ad496e9e9ef159c54d052c
     home: https://solace.com/products/agent-mesh/
@@ -16,7 +29,25 @@ entries:
     version: 1.0.0
   solace-agent-mesh:
   - apiVersion: v2
-    created: "2025-11-06T20:49:49.233938313Z"
+    created: "2025-12-18T17:34:19.758982492Z"
+    dependencies:
+    - condition: global.persistence.enabled
+      name: persistence-layer
+      repository: file:./charts
+      version: 1.6.0
+    description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
+    digest: 513c29358b464f4c566d45a0695d0cfaa6c7eb35715ce8361f7073e32d261243
+    home: https://solace.com/products/agent-mesh/
+    maintainers:
+    - email: info@solace.com
+      name: Solace
+    name: solace-agent-mesh
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.1.0.tgz
+    version: 1.1.0
+  - apiVersion: v2
+    created: "2025-12-18T17:34:19.757343645Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -33,4 +64,4 @@ entries:
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.0.0.tgz
     version: 1.0.0
-generated: "2025-11-06T20:49:49.229638891Z"
+generated: "2025-12-18T17:34:19.754261897Z"
