@@ -8,6 +8,6 @@ metadata:
 data:
   agent.yaml: |-
 {{- if not .Values.config.agentYaml }}
-{{- fail "config.agentYaml is required. Please provide the agent configuration using --set-file config.agentYaml=/path/to/agent-config.yaml" }}
+{{- fail "config.agentYaml is required. Please provide the agent configuration using:\n  helm install --set-file config.agentYaml=/path/to/agent-config.yaml\nSee the agent configuration documentation for the required format." }}
 {{- end }}
 {{ .Values.config.agentYaml | nindent 4 }}

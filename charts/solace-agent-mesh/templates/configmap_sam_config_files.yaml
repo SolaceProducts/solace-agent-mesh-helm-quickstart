@@ -319,7 +319,11 @@ metadata:
 data:
   enterprise_config.yaml: |
     authorization_service:
+{{- if .Values.sam.authorization.enabled }}
       type: "default_rbac"
+{{- else }}
+      type: "none"
+{{- end }}
       role_to_scope_definitions_path: "config/auth/role-to-scope-definitions.yaml"
       user_to_role_assignments_path: "config/auth/user-to-role-assignments.yaml"
     namespace: ${NAMESPACE}

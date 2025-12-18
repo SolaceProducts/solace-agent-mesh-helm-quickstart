@@ -7,8 +7,7 @@ This directory contains the Docusaurus-based documentation site for Solace Agent
 To run the documentation site locally:
 
 ```bash
-cd docs-site
-npm install
+npm ci
 npm start
 ```
 
@@ -27,8 +26,10 @@ The output will be in the `build/` directory.
 ## Project Structure
 
 - `docs/` - Documentation markdown files
-  - `intro.md` - Getting started guide (main README content)
+  - `intro.md` - Getting started guide
   - `network-configuration.md` - Network configuration guide
+  - `persistence.md` - Persistence configuration guide
+  - `agent-standalone-deployment.md` - Agent standalone deployment guide
   - `troubleshooting.md` - Troubleshooting guide
 - `src/` - React components and custom pages
 - `static/` - Static assets (images, files, etc.)
@@ -39,7 +40,7 @@ The output will be in the `build/` directory.
 
 The documentation is automatically deployed to GitHub Pages via the `.github/workflows/publish.yaml` workflow when a new tag is pushed. The site is published to:
 
-**https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs-site/**
+**https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/**
 
 The main repository page redirects to the documentation site.
 
@@ -66,6 +67,6 @@ The site is configured for GitHub Pages deployment with:
 
 ## Links
 
-- **Documentation Site**: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs-site/
+- **Documentation Site**: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/
 - **GitHub Repository**: https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart
 - **Helm Repository**: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/

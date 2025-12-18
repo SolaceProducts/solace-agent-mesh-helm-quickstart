@@ -67,6 +67,23 @@ kubectl get service -l app.kubernetes.io/instance=agent-mesh
 - Check database credentials
 - Ensure databases exist and are accessible from the cluster
 
+### Insufficient node disk space
+
+**Symptoms**: Image pull fails with "no space left on device" error:
+
+```
+Warning  Failed  kubelet  Failed to pull image "gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise:x.x.x":
+failed to pull and unpack image: failed to extract layer: write ... no space left on device: unknown
+```
+
+**Cause**: SAM requires pulling several container images. Nodes with insufficient disk space cannot store all required images.
+
+**Solution**:
+
+1. Ensure nodes have at least **30 GB** of disk space
+
+2. If using managed Kubernetes, resize your node pool's disk size or create a new node pool with larger disks
+
 ## Getting Help
 
 For issues, questions, or contributions, please open an issue in [GitHub Issues](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/issues).

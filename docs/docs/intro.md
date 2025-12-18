@@ -17,6 +17,7 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
   - [Step 4: Install the Chart](#step-4-install-the-chart)
 - [Accessing SAM](#accessing-sam)
   - [Network Configuration](#network-configuration)
+- [Agent Standalone Deployment](#agent-standalone-deployment)
 - [Upgrading](#upgrading)
 - [Uninstalling](#uninstalling)
 - [Configuration Options](#configuration-options)
@@ -24,8 +25,6 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
   - [Service Configuration](#service-configuration)
   - [Resource Limits](#resource-limits)
   - [Persistence](#persistence)
-    - [Option 1: Using Built-in Persistence Layer (Dev/POC Only)](#option-1-using-built-in-persistence-layer-devpoc-only)
-    - [Option 2: Using External PostgreSQL and S3 (Recommended for Production)](#option-2-using-external-postgresql-and-s3-recommended-for-production)
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
     - [Understanding Roles and Permissions](#understanding-roles-and-permissions)
     - [Option 1: Updating ConfigMaps Directly (Quick Changes)](#option-1-updating-configmaps-directly-quick-changes)
@@ -37,7 +36,8 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
 ## Prerequisites
 
 - Kubernetes cluster (1.34+)
-- Helm 3.19.0+ (Download Helm from https://helm.sh/docs/intro/install/)
+- Kubernetes nodes with sufficient disk space (minimum 30 GB recommended; see [Troubleshooting](troubleshooting#insufficient-node-disk-space) if you encounter "no space left on device" errors)
+- Helm 3.19.0+ (Download from https://helm.sh/docs/intro/install/)
 - kubectl configured to communicate with your cluster
 - A Solace Event Broker instance
   - [Deploy on Kubernetes using Helm](https://github.com/SolaceProducts/pubsubplus-kubernetes-helm-quickstart/blob/master/docs/PubSubPlusK8SDeployment.md)
@@ -177,6 +177,12 @@ kubectl get pods -l app.kubernetes.io/instance=agent-mesh
 SAM can be accessed through LoadBalancer, NodePort, Ingress, or port-forward depending on your service configuration.
 
 For detailed network configuration options, access methods, and production deployment recommendations, see the [Network Configuration Guide](network-configuration).
+
+## Agent Standalone Deployment
+
+While SAM includes an agent-deployer microservice that dynamically deploys agents via the UI/API, you can also deploy agents independently using direct Helm commands. This approach is useful for GitOps workflows, multi-cluster deployments, or independent agent management.
+
+For detailed instructions, see the [Agent Standalone Deployment](agent-standalone-deployment) guide.
 
 ## Upgrading
 
@@ -352,76 +358,21 @@ samDeployment:
 
 ### Persistence
 
-SAM requires persistent storage for session data and artifacts. You can choose between two persistence options:
+SAM requires persistent storage for session data and artifacts. You can choose between:
 
-#### Option 1: Using Built-in Persistence Layer (Dev/POC Only)
+- **Bundled Persistence** (Dev/POC): In-cluster PostgreSQL and SeaweedFS
+- **External Persistence** (Production): Managed PostgreSQL and S3-compatible storage
 
-**⚠️ Not recommended for production.** The chart can deploy PostgreSQL and SeaweedFS for quick start, demos, and proof-of-concept deployments.
+For detailed configuration options, image registry settings, and provider-specific examples, see the [Persistence Configuration](persistence) documentation.
 
-To enable built-in persistence:
+**Quick Start (Bundled Persistence):**
 
 ```yaml
 global:
   persistence:
-    enabled: true  # This must be explicitly enabled
+    enabled: true
     namespaceId: "solace-agent-mesh"  # Must be unique per SAM installation
 ```
-
-#### Option 2: Using External PostgreSQL and S3 (Recommended for Production)
-
-Use your own managed PostgreSQL database and S3-compatible storage for better scalability, reliability, and separation of concerns.
-
-**Note:** Built-in persistence is disabled by default (`global.persistence.enabled: false`), so you only need to configure your external data stores.
-
-**Configure external database and S3 storage**
-
-Configure your external PostgreSQL and S3 storage using the `dataStores` section in your `values.yaml`.
-
-**Important:** The database credentials must have admin privileges (`SUPERUSER` recommended; or at minimum `CREATEROLE` and `CREATEDB`) because SAM's init container uses them to automatically create users and databases for both the main application and any agents deployed through the SAM UI.
-
-```yaml
-# Disable built-in persistence layer
-global:
-  persistence:
-    enabled: false  # Optional (this is false by default)
-    namespaceId: "solace-agent-mesh"  # Must be unique per SAM installation
-
-# Configure external PostgreSQL and S3 for SAM application
-dataStores:
-  database:
-    protocol: "postgresql+psycopg2"
-    host: "your-postgres-host"
-    port: "5432"
-    adminUsername: "your-db-admin-user"  # Must have CREATEDB and CREATEROLE privileges
-    adminPassword: "your-db-admin-password"
-  s3:
-    endpointUrl: "your-s3-endpoint-url"
-    bucketName: "your-bucket-name"
-    accessKey: "your-s3-access-key"
-    secretKey: "your-s3-secret-key"
-```
-
-**Supabase with Connection Pooler**
-
-If you're using Supabase with the connection pooler (required for IPv4 networks or if you haven't purchased the IPv4 addon for the Direct connection option), you'll need to provide your Supabase tenant ID. This is shown in your Supabase connection options as `postgresql://postgres.<SUPABASE_TENANT_ID>:[YOUR-PASSWORD]@...`:
-
-```yaml
-dataStores:
-  database:
-    protocol: "postgresql+psycopg2"
-    host: "aws-1-us-east-1.pooler.supabase.com"  # Connection pooler endpoint
-    port: "5432"
-    adminUsername: "postgres"
-    adminPassword: "your-supabase-postgres-password"
-    supabaseTenantId: "your-project-id"  # Extract from Supabase connection options
-  s3:
-    endpointUrl: "https://your-project-id.storage.supabase.co/storage/v1/s3"
-    bucketName: "your-bucket-name"
-    accessKey: "your-supabase-s3-access-key"
-    secretKey: "your-supabase-s3-secret-key"
-```
-
-**Note**: If you're using Supabase's Direct Connection with IPv4 addon, you do not need the `supabaseTenantId` field.
 
 ### Role-Based Access Control (RBAC)
 

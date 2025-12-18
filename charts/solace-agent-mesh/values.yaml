@@ -128,7 +128,6 @@ ingress:
     #   hosts:
     #     - sam.example.com
 
-
 # Additional environment variables for SAM configuration
 # These are injected into the containers and used for runtime configuration
 # Note: Variables already configured through dedicated values.yaml sections
@@ -157,9 +156,15 @@ samDeployment:
   # Kubernetes Service Account configuration
   # The service account must have permissions to create and manage resources
   # such as Deployments, Services, ConfigMaps, and Secrets
+  # NOTE: If you change the service account name, you must also update
+  # persistence-layer.postgresql.serviceAccountName and
+  # persistence-layer.seaweedfs.serviceAccountName when using bundled persistence
   serviceAccount:
     name: solace-agent-mesh-sa
 
+  # Image pull secret for accessing private container registries
+  # This secret is attached to the service account above, allowing all pods
+  # using that service account (including bundled persistence) to pull images
   # imagePullSecret: ""
 
   # Main SAM application container image
@@ -174,9 +179,9 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.3
+      tag: 1.1.4
       pullPolicy: Always
-    chartUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.0.0.tgz"
+    chartUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.1.0.tgz"
 
   # Deployment strategy and update configuration
   # use Recreate as SAM does not support multiple replicas
@@ -217,6 +222,13 @@ samDeployment:
         cpu: 200m
         memory: 512Mi
 
+# extraSecretEnvironmentVars is a list of extra environment variables.
+# These variables take value from existing Secret objects.
+extraSecretEnvironmentVars: []
+  # - envName: LLM_SERVICE_API_KEY
+  #   secretName: my-existing-secret
+  #   secretKey: LLM_SERVICE_API_KEY
+
 dataStores:
   database:
     protocol: "postgresql+psycopg2"
@@ -236,8 +248,10 @@ dataStores:
 
 persistence-layer:
   postgresql:
+    serviceAccountName: solace-agent-mesh-sa
     commonLabels:
       app.kubernetes.io/service: "database"
   seaweedfs:
+    serviceAccountName: solace-agent-mesh-sa
     commonLabels:
       app.kubernetes.io/service: "s3"

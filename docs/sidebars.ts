@@ -19,6 +19,16 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'persistence',
+      label: 'Persistence Configuration',
+    },
+    {
+      type: 'doc',
+      id: 'agent-standalone-deployment',
+      label: 'Agent Standalone Deployment',
+    },
+    {
+      type: 'doc',
       id: 'troubleshooting',
       label: 'Troubleshooting',
     },

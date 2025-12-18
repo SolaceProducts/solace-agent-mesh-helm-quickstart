@@ -50,6 +50,21 @@ app.kubernetes.io/name: {{ include "sam.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/*
+Inject extra environment populated by secrets, if populated
+*/}}
+{{- define "vault.extraSecretEnvironmentVars" -}}
+{{- if .extraSecretEnvironmentVars -}}
+{{- range .extraSecretEnvironmentVars }}
+- name: {{ .envName }}
+  valueFrom:
+   secretKeyRef:
+     name: {{ .secretName }}
+     key: {{ .secretKey }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "sam.serviceSelectorLabels" -}}
 app.kubernetes.io/name: {{ include "sam.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}

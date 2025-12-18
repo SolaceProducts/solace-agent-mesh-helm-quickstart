@@ -45,6 +45,11 @@ spec:
                 name: {{ include "seaweedfs.secretName" (index .Subcharts "persistence-layer") }}
             - secretRef:
                 name: {{ include "sam.fullname" . }}-init-credentials
+          # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
+          {{- if .Values.extraSecretEnvironmentVars }}
+          env:
+          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- end }}
           command:
             - sh
             - -c
@@ -83,6 +88,11 @@ spec:
           {{- end }}
             - secretRef:
                 name: {{ include "sam.fullname" . }}-init-credentials
+          # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
+          {{- if .Values.extraSecretEnvironmentVars }}
+          env:
+          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- end }}
           command:
             - "sh"
             - "-c"
@@ -145,6 +155,11 @@ spec:
                 name: {{ include "sam.fullname" . }}-environment
             - secretRef:
                 name: {{ include "sam.fullname" . }}-persistence
+          # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
+          {{- if .Values.extraSecretEnvironmentVars }}
+          env:
+          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- end }}
           command:
             - solace-agent-mesh
             - run

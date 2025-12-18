@@ -75,31 +75,56 @@ PostgreSQL secret discovery and access helpers
 */}}
 
 {{/*
-Get PostgreSQL secret name using service discovery
+Get PostgreSQL secret name using service discovery or explicit configuration
 */}}
 {{- define "sam.postgresql.secretName" -}}
-{{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
-{{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
-{{- $found := "" }}
-{{- range $allSecrets.items }}
-{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "database") }}
-{{- $found = .metadata.name }}{{- break }}{{- end }}{{- end }}
-{{- if not $found }}{{- fail (printf "Database secret not found for namespace '%s'. Make sure the chart with persistence is deployed first." .Release.Namespace ) }}{{- end }}
-{{- $found }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.database }}
+    {{- .Values.persistence.existingSecrets.database }}
+  {{- else }}
+    {{- include "sam.fullname" . }}-persistence
+  {{- end }}
+{{- else }}
+  {{- /* deployer mode: auto-discover secret */ -}}
+  {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+  {{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
+  {{- $found := "" }}
+  {{- range $allSecrets.items }}
+    {{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "database") }}
+      {{- $found = .metadata.name }}{{- break }}
+    {{- end }}
+  {{- end }}
+  {{- if not $found }}{{- fail (printf "Database secret not found for namespace '%s'. Make sure the chart with persistence is deployed first." .Release.Namespace ) }}{{- end }}
+  {{- $found }}
+{{- end }}
 {{- end }}
 
 {{/*
 Generate DATABASE_URL from helpers and discovered PostgreSQL secret
 */}}
 {{- define "sam.postgresql.databaseUrl" -}}
-{{- $secretName := include "sam.postgresql.secretName" . }}
-{{- $pgSecret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
-{{- if not $pgSecret }}{{- fail (printf "PostgreSQL secret '%s' not found" $secretName) }}{{- end }}
-{{- $pgHost := index $pgSecret.data "PGHOST" | b64dec }}
-{{- $pgPort := index $pgSecret.data "PGPORT" | b64dec }}
-{{- $baseUsername := include "sam.database.agentUser" . }}
-{{- $qualifiedUsername := include "sam.database.qualifyUsername" (dict "username" $baseUsername "context" .) }}
-{{- printf "postgresql+psycopg2://%s:%s@%s:%s/%s" $qualifiedUsername (include "sam.database.agentPassword" .) $pgHost $pgPort (include "sam.database.agentName" .) }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.database }}
+    {{- /* Use existing secret - must contain DATABASE_URL */ -}}
+    {{- $pgSecret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.database) }}
+    {{- if not $pgSecret }}{{- fail (printf "PostgreSQL secret '%s' not found" .Values.persistence.existingSecrets.database) }}{{- end }}
+    {{- index $pgSecret.data "DATABASE_URL" | b64dec }}
+  {{- else if .Values.persistence.database.url }}
+    {{- .Values.persistence.database.url }}
+  {{- else }}
+    {{- printf "postgresql+psycopg2://%s:%s@%s:%s/%s" .Values.persistence.database.username .Values.persistence.database.password .Values.persistence.database.host .Values.persistence.database.port .Values.persistence.database.database }}
+  {{- end }}
+{{- else }}
+  {{- /* deployer mode: auto-discover and build URL */ -}}
+  {{- $secretName := include "sam.postgresql.secretName" . }}
+  {{- $pgSecret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- if not $pgSecret }}{{- fail (printf "PostgreSQL secret '%s' not found" $secretName) }}{{- end }}
+  {{- $pgHost := index $pgSecret.data "PGHOST" | b64dec }}
+  {{- $pgPort := index $pgSecret.data "PGPORT" | b64dec }}
+  {{- $baseUsername := include "sam.database.agentUser" . }}
+  {{- $qualifiedUsername := include "sam.database.qualifyUsername" (dict "username" $baseUsername "context" .) }}
+  {{- printf "postgresql+psycopg2://%s:%s@%s:%s/%s" $qualifiedUsername (include "sam.database.agentPassword" .) $pgHost $pgPort (include "sam.database.agentName" .) }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -107,29 +132,50 @@ SeaweedFS secret discovery and access helpers
 */}}
 
 {{/*
-Get S3 secret name using service discovery
+Get S3 secret name using service discovery or explicit configuration
 */}}
 {{- define "sam.s3.secretName" -}}
-{{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
-{{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
-{{- $found := "" }}
-{{- range $allSecrets.items }}
-{{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "s3") }}
-{{- $found = .metadata.name }}{{- break }}{{- end }}{{- end }}
-{{- if not $found }}{{- fail (printf "S3 secret not found for namespace '%s'. Make sure the chart with persistence is deployed first." .Release.Namespace ) }}{{- end }}
-{{- $found }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.s3 }}
+    {{- .Values.persistence.existingSecrets.s3 }}
+  {{- else }}
+    {{- include "sam.fullname" . }}-persistence
+  {{- end }}
+{{- else }}
+  {{- /* deployer mode: auto-discover secret */ -}}
+  {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+  {{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
+  {{- $found := "" }}
+  {{- range $allSecrets.items }}
+    {{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "s3") }}
+      {{- $found = .metadata.name }}{{- break }}
+    {{- end }}
+  {{- end }}
+  {{- if not $found }}{{- fail (printf "S3 secret not found for namespace '%s'. Make sure the chart with persistence is deployed first." .Release.Namespace ) }}{{- end }}
+  {{- $found }}
+{{- end }}
 {{- end }}
 
 {{/*
-Get S3 URL from discovered secret
+Get S3 URL from discovered secret or configuration
 */}}
 {{- define "sam.s3.url" -}}
-{{- $secretName := include "sam.s3.secretName" . }}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
-{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
-{{- $url := index $secret.data "S3_ENDPOINT_URL" | b64dec }}
-{{- if not $url }}{{- fail "S3_ENDPOINT_URL not found in S3 secret" }}{{- end }}
-{{- $url }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.s3 }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.s3) }}
+    {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" .Values.persistence.existingSecrets.s3) }}{{- end }}
+    {{- index $secret.data "S3_ENDPOINT_URL" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.s3.endpointUrl }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.s3.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+  {{- $url := index $secret.data "S3_ENDPOINT_URL" | b64dec }}
+  {{- if not $url }}{{- fail "S3_ENDPOINT_URL not found in S3 secret" }}{{- end }}
+  {{- $url }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -137,47 +183,77 @@ S3 configuration helpers - generates consistent S3 settings based on namespaceId
 */}}
 
 {{/*
-Get S3 bucket name 
+Get S3 bucket name
 */}}
 {{- define "sam.s3.bucketName" -}}
-{{- $secretName := include "sam.s3.secretName" . }}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
-{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
-{{- $bucket := index $secret.data "S3_BUCKET" }}
-{{- if not $bucket }}
-{{- .Values.global.persistence.namespaceId }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.s3 }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.s3) }}
+    {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" .Values.persistence.existingSecrets.s3) }}{{- end }}
+    {{- index $secret.data "S3_BUCKET_NAME" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.s3.bucketName }}
+  {{- end }}
 {{- else }}
-{{- $bucket | b64dec }}
+  {{- $secretName := include "sam.s3.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+  {{- $bucket := index $secret.data "S3_BUCKET" }}
+  {{- if not $bucket }}
+    {{- .Values.global.persistence.namespaceId }}
+  {{- else }}
+    {{- $bucket | b64dec }}
+  {{- end }}
 {{- end }}
 {{- end }}
 
 {{/*
-Get S3 access key (same as namespaceId)
+Get S3 access key
 */}}
 {{- define "sam.s3.accessKey" -}}
-{{- $secretName := include "sam.s3.secretName" . }}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
-{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
-{{- $accessKey := index $secret.data "S3_ACCESS_KEY" }}
-{{- if not $accessKey }}
-{{- .Values.global.persistence.namespaceId }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.s3 }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.s3) }}
+    {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" .Values.persistence.existingSecrets.s3) }}{{- end }}
+    {{- index $secret.data "AWS_ACCESS_KEY_ID" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.s3.accessKey }}
+  {{- end }}
 {{- else }}
-{{- $accessKey | b64dec }}
+  {{- $secretName := include "sam.s3.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+  {{- $accessKey := index $secret.data "S3_ACCESS_KEY" }}
+  {{- if not $accessKey }}
+    {{- .Values.global.persistence.namespaceId }}
+  {{- else }}
+    {{- $accessKey | b64dec }}
+  {{- end }}
 {{- end }}
 {{- end }}
 
 {{/*
-Get S3 secret key (same as namespaceId)
+Get S3 secret key
 */}}
 {{- define "sam.s3.secretKey" -}}
-{{- $secretName := include "sam.s3.secretName" . }}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
-{{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
-{{- $secretKey := index $secret.data "S3_SECRET_KEY" }}
-{{- if not $secretKey }}
-{{- .Values.global.persistence.namespaceId }}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.s3 }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.s3) }}
+    {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" .Values.persistence.existingSecrets.s3) }}{{- end }}
+    {{- index $secret.data "AWS_SECRET_ACCESS_KEY" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.s3.secretKey }}
+  {{- end }}
 {{- else }}
-{{- $secretKey | b64dec }}
+  {{- $secretName := include "sam.s3.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
+  {{- $secretKey := index $secret.data "S3_SECRET_KEY" }}
+  {{- if not $secretKey }}
+    {{- .Values.global.persistence.namespaceId }}
+  {{- else }}
+    {{- $secretKey | b64dec }}
+  {{- end }}
 {{- end }}
 {{- end }}
 {{/*

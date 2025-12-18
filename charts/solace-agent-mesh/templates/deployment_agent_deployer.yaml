@@ -44,6 +44,11 @@ spec:
                 name: {{ include "sam.fullname" . }}-agent-deployer-config
             - secretRef:
                 name: {{ include "sam.fullname" . }}-environment
+          # Inject specific keys from existing secrets (extraSecretEnvironmentVars)
+          {{- if .Values.extraSecretEnvironmentVars }}
+          env:
+          {{- include "vault.extraSecretEnvironmentVars" .Values | nindent 12 }}
+          {{- end }}
           {{- if .Values.samDeployment.securityContext }}
           securityContext:
             {{- toYaml .Values.samDeployment.securityContext | nindent 12 }}

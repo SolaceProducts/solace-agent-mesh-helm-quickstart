@@ -1,0 +1,108 @@
+# Sample values file for standalone SAM agent deployment
+# This deploys an agent WITHOUT the agent-deployer microservice
+#
+# IMPORTANT: You must also provide an agent configuration file using:
+#   helm install my-agent solace-agent-mesh/sam-agent \
+#     -f agent-standalone-values.yaml \
+#     --set-file config.agentYaml=/path/to/your-agent-config.yaml
+
+# Set deployment mode to standalone
+deploymentMode: "standalone"
+
+# Agent identifier (required) - must be unique per agent instance
+agentId: "my-custom-agent"
+
+# Global configuration
+global:
+  persistence:
+    namespaceId: "solace-agent-mesh"  # Used for database/bucket naming conventions
+  imageRegistry: ""  # Optional: use custom registry
+
+# Solace Broker Configuration (required)
+solaceBroker:
+  url: "wss://your-broker-url:443"  # e.g., wss://mr2zq0g0f1.messaging.solace.cloud:443
+  username: "your-broker-username"
+  password: "your-broker-password"
+  vpn: "your-vpn-name"
+  useTemporaryQueues: true
+
+# LLM Service Configuration (required)
+llmService:
+  generalModelName: "gpt-4o"  # or your preferred model
+  endpoint: "https://api.openai.com/v1"
+  apiKey: "your-openai-api-key"
+
+# Persistence Configuration (required for standalone mode)
+# Option 1: Use existing Kubernetes secrets (recommended for production)
+persistence:
+  existingSecrets:
+    database: ""  # Name of existing secret with DATABASE_URL
+    s3: ""        # Name of existing secret with S3 credentials
+
+  # Option 2: Provide credentials directly (will create secrets automatically)
+  # Only used if existingSecrets are empty
+  database:
+    # Full database URL (recommended)
+    url: "postgresql+psycopg2://user:password@host:5432/dbname"
+    # OR provide individual components
+    # protocol: "postgresql+psycopg2"
+    # host: "your-postgres-host"
+    # port: "5432"
+    # username: "your-db-user"
+    # password: "your-db-password"
+    # database: "your-db-name"
+
+  s3:
+    endpointUrl: "https://your-s3-endpoint"  # e.g., https://s3.amazonaws.com
+    bucketName: "your-bucket-name"
+    accessKey: "your-access-key"
+    secretKey: "your-secret-key"
+    region: "us-east-1"
+
+# Service Account
+serviceAccount:
+  name: solace-agent-mesh-sa
+
+# Container Image
+image:
+  repository: solace/solace-agent-mesh
+  tag: latest
+  pullPolicy: Always
+
+# Deployment Strategy
+rollout:
+  rollingUpdate: {}
+  strategy: Recreate  # Use Recreate to avoid multiple instances
+
+# Resource Limits
+resources:
+  sam:
+    requests:
+      cpu: 1000m
+      memory: 1024Mi
+    limits:
+      cpu: 2000m
+      memory: 2048Mi
+
+# Additional environment variables (optional)
+environmentVariables: {}
+  # CUSTOM_VAR: "custom_value"
+
+# Service Configuration (optional)
+service:
+  type: LoadBalancer
+  port: 5001
+  annotations: {}
+  dns:
+    enabled: false
+    hostname: ""
+    ttl: "300"
+
+# Pod Configuration (optional)
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+annotations: {}
+podAnnotations: {}
+podLabels: {}

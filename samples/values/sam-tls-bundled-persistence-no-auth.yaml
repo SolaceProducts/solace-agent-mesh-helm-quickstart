@@ -39,31 +39,40 @@ service:
     enabled: false
     passphrase: ""  # Optional: Add if your TLS key is encrypted
 
-# Persistence Configuration
-# Enable install of postgress and seaweedfs sql and artifacts stores in cluster
+# =============================================================================
+# CONTAINER IMAGE REGISTRY
+# =============================================================================
+# Use Solace's private GCR registry for all images (requires imagePullSecret)
+# Comment out to use default Docker Hub registry
 global:
-  # Use internal GCR registry for all images (requires imagePullSecret)
-  # Comment out to use default Docker Hub registry
   imageRegistry: gcr.io/gcp-maas-prod
 
+# =============================================================================
+# BUNDLED PERSISTENCE (PostgreSQL + SeaweedFS)
+# =============================================================================
+# Deploy in-cluster PostgreSQL and SeaweedFS for data persistence
+# For production, consider using external managed services instead
+# See: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/persistence
   persistence:
     enabled: true
-    namespaceId: "solace-agent-mesh-no-auth"  # Must be unique per SAM installation - change for your deployment
+    namespaceId: "solace-agent-mesh-no-auth"  # Must be unique per SAM installation
 
-# Uncomment when using global.imageRegistry override to specify GCR-specific image tags
-# persistence-layer:
-#   postgresql:
-#     image:
-#       tag: "18.0-trixie"
-#     persistence:
-#       storageClassName: "gp3"  # Optional: specify storage class (e.g., gp3 for AWS)
-#     serviceAccountName: solace-agent-mesh-sa  # Required for image pull access when using custom registry
-#   seaweedfs:
-#     image:
-#       tag: "3.97-compliant"
-#     persistence:
-#       storageClassName: "gp3"  # Optional: specify storage class (e.g., gp3 for AWS)
-#     serviceAccountName: solace-agent-mesh-sa  # Required for image pull access when using custom registry
+# =============================================================================
+# PERSISTENCE LAYER OVERRIDES (Optional)
+# =============================================================================
+# When using Solace's GCR registry, specify GCR-specific image tags
+# When using Docker Hub, these overrides are not needed
+persistence-layer:
+  postgresql:
+    image:
+      tag: "18.0-trixie"  # GCR tag (Docker Hub default: "18.0")
+    # persistence:
+    #   storageClassName: "gp3"  # Optional: Kubernetes storage class (e.g., gp3 for AWS EBS)
+  seaweedfs:
+    image:
+      tag: "3.97-compliant"  # GCR tag (Docker Hub default: "3.97")
+    # persistence:
+    #   storageClassName: "gp3"  # Optional: Kubernetes storage class
 
 # SAM Deployment Configuration
 samDeployment:
@@ -82,5 +91,5 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.3
+      tag: 1.1.4
       pullPolicy: Always
