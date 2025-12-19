@@ -1,6 +1,6 @@
 ---
 sidebar_position: 4
-title: Agent Standalone Deployment
+title: Standalone Agent Deployment
 ---
 
 # Standalone Agent Deployment Guide
