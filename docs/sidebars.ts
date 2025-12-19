@@ -24,8 +24,8 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'doc',
-      id: 'agent-standalone-deployment',
-      label: 'Agent Standalone Deployment',
+      id: 'standalone-agent-deployment',
+      label: 'Standalone Agent Deployment',
     },
     {
       type: 'doc',
