@@ -17,7 +17,7 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
   - [Step 4: Install the Chart](#step-4-install-the-chart)
 - [Accessing SAM](#accessing-sam)
   - [Network Configuration](#network-configuration)
-- [Agent Standalone Deployment](#agent-standalone-deployment)
+- [Standalone Agent Deployment](#standalone-agent-deployment)
 - [Upgrading](#upgrading)
 - [Uninstalling](#uninstalling)
 - [Configuration Options](#configuration-options)
@@ -178,11 +178,11 @@ SAM can be accessed through LoadBalancer, NodePort, Ingress, or port-forward dep
 
 For detailed network configuration options, access methods, and production deployment recommendations, see the [Network Configuration Guide](network-configuration).
 
-## Agent Standalone Deployment
+## Standalone Agent Deployment
 
 While SAM includes an agent-deployer microservice that dynamically deploys agents via the UI/API, you can also deploy agents independently using direct Helm commands. This approach is useful for GitOps workflows, multi-cluster deployments, or independent agent management.
 
-For detailed instructions, see the [Agent Standalone Deployment](agent-standalone-deployment) guide.
+For detailed instructions, see the [Standalone Agent Deployment](standalone-agent-deployment) guide.
 
 ## Upgrading
 

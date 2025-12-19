@@ -29,7 +29,7 @@ The output will be in the `build/` directory.
   - `intro.md` - Getting started guide
   - `network-configuration.md` - Network configuration guide
   - `persistence.md` - Persistence configuration guide
-  - `agent-standalone-deployment.md` - Agent standalone deployment guide
+  - `standalone-agent-deployment.md` - Standalone agent deployment guide
   - `troubleshooting.md` - Troubleshooting guide
 - `src/` - React components and custom pages
 - `static/` - Static assets (images, files, etc.)
