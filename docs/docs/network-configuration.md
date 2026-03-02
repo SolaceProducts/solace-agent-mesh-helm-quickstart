@@ -1362,9 +1362,9 @@ ingress:
 
 ---
 
-## Platform Service Routing (Enterprise)
+## Platform Service Routing
 
-SAM Enterprise includes a Platform Service API for managing agents, deployments, connectors, and toolsets.
+SAM includes a Platform Service API for managing agents, deployments, connectors, and toolsets.
 
 ### Endpoints
 

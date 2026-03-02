@@ -1,6 +1,8 @@
 # Sam configuration
 sam:
-  enterprise: true
+  # This Helm chart requires the SAM Enterprise image (solace-agent-mesh-enterprise).
+  # Community images are not supported for Kubernetes deployments.
+
   # Authentication and authorization configuration
   # When enabled, SAM will enforce RBAC authorization
   # When disabled (for dev/quickstart), all users have admin access
@@ -11,7 +13,7 @@ sam:
   # assigned to the service by your cloud provider
   dnsName: "dns-hostname-here" # e.g., sam.example.com
   sessionSecretKey: "my-secret-key"
-  # The oidc configuration is required for enterprise mode with authentication
+  # The oidc configuration is required for authentication
   # If not using OIDC, set the oidc section to null or remove it
   # and the authentication will be disabled
   oauthProvider:
@@ -43,7 +45,37 @@ sam:
       flushThreshold: 10
 
   # User to role assignments for RBAC
+  # Choose ONE method: either 'users' (static assignments) OR 'idpClaims' (dynamic from IDP)
   authenticationRbac:
+    # Custom role definitions (optional)
+    # Define additional roles beyond the built-in sam_admin and sam_user roles
+    # These custom roles can then be assigned to users via static assignments or IDP claims
+    customRoles: {}
+      # Example custom roles:
+      # data_engineer:
+      #   description: "Data engineering team with access to data tools and connectors"
+      #   scopes:
+      #     - "artifact:read"
+      #     - "artifact:write"
+      #     - "tool:data:*"
+      #     - "sam:connectors:read"
+      #     - "sam:connectors:create"
+      # viewer:
+      #   description: "Read-only access to deployments and connectors"
+      #   scopes:
+      #     - "artifact:read"
+      #     - "sam:deployments:read"
+      #     - "sam:connectors:read"
+      # power_user:
+      #   description: "Advanced user with broader tool access"
+      #   scopes:
+      #     - "artifact:*"
+      #     - "tool:*"
+      #     - "sam:agent_builder:read"
+      #     - "sam:connectors:*"
+      #     - "sam:deployments:read"
+
+    # Static user assignments (used when idpClaims is not configured)
     users:
       - identity: "admin@example.com" # can be email, username, name, etc.
         roles: ["sam_admin"]
@@ -51,6 +83,24 @@ sam:
       - identity: "user1@example.com"
         roles: ["sam_user"]
         description: "Standard SAM User"
+
+    # Dynamic role assignment from IDP claims (alternative to static users)
+    # When configured, SAM will extract roles from the specified OIDC claim
+    idpClaims:
+      enabled: false
+      oidcProvider: "oidc"
+      claimKey: "groups"      # e.g., "groups", "roles", "custom_claim"
+      # Map IDP claim values to SAM roles
+      mappings: {}
+        # Example mappings:
+        # "admin-group": ["sam_admin"]
+        # "user-group": ["sam_user"]
+
+    # Default roles assigned to users (applies to both static and IDP claims methods)
+    # - For IDP claims: assigned when user's claims don't match any mappings
+    # - For static assignments: assigned to authenticated users not explicitly listed in 'users'
+    defaultRoles:
+      - "sam_user"
 
 # Solace Broker configuration
 # This is required to connect to provide connectivity to SAM components
@@ -219,20 +269,28 @@ samDeployment:
   # Main SAM application container image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.65.45
+    tag: 1.78.9
     pullPolicy: Always
 
 
-  # Agent/Gateway Deployer configuration (required for enterprise mode)
+  # Agent/Gateway Deployer configuration
   # This container is responsible for deploying and managing agents and gateways
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
       tag: 1.6.3
       pullPolicy: Always
-    version: "k8s-1.0.1"
-    # Full URL to the unified Helm chart for deploying agents and gateways
-    chartUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.2.2.tgz"
+    version: "k8s-1.6.3"
+    # Chart repository base URL for deploying agents and gateways
+    chartBaseUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart"
+    # Chart version for the unified sam-agent chart (used for both agents and gateways)
+    chartVersion: "1.2.2"
+    # Local chart mounting options (optional)
+    # When enabled, the chart will be mounted from local filesystem instead of fetching remotely
+    localCharts:
+      enabled: false
+      # Path where chart will be mounted in the container
+      mountPath: "/opt/helm-charts"
 
   # Deployment strategy and update configuration
   # use Recreate as SAM does not support multiple replicas

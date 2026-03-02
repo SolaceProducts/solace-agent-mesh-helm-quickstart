@@ -1,9 +1,8 @@
-# SAM Enterprise Mode with AWS ALB Ingress
+# SAM with AWS ALB Ingress
 # This example shows how to deploy SAM with Ingress using AWS ALB for production use
 # TLS termination happens at ALB level using ACM certificates
 
 sam:
-  enterprise: true
   dnsName: "sam.example.com"  # Your DNS hostname
   sessionSecretKey: "change-me-to-secure-random-string"
   oauthProvider:
@@ -114,7 +113,7 @@ samDeployment:
 
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.65.45
+    tag: 1.78.9
     pullPolicy: Always
 
   agentDeployer:

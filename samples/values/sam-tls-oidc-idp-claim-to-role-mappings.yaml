@@ -16,13 +16,34 @@ sam:
 
   # User to role assignments for RBAC
   authenticationRbac:
-    users:
-      - identity: "admin@example.com"  # TODO: Replace with actual admin email
-        roles: ["sam_admin"]
-        description: "SAM Administrator Account"
-      - identity: "user1@example.com"  # TODO: Replace with actual user email
-        roles: ["sam_user"]
-        description: "Standard SAM User"
+    # Define custom roles (optional)
+    customRoles:
+      data_engineer:
+        description: "Data engineering team with access to data tools"
+        scopes:
+          - "artifact:*"
+          - "tool:data:*"
+          - "sam:connectors:read"
+
+    # Static user assignments (leave empty when using idpClaims)
+    users: []
+
+    # Dynamic role assignment from IDP claims
+    idpClaims:
+      enabled: true
+      oidcProvider: "oidc"
+      claimKey: "groups"      # e.g., "groups", "roles", "custom_claim"
+      # Map IDP claim values to SAM roles (built-in or custom)
+      mappings:
+        "claim_id_1":
+          - sam_admin
+        "claim_id_2":
+          - sam_user
+    # Default roles (applies to both static and IDP claims methods)
+    # - For IDP claims: assigned when user's claims don't match any mappings
+    # - For static assignments: assigned to authenticated users not explicitly listed in 'users'
+    defaultRoles:
+      - "data_engineer"
 
 # Solace Broker Configuration
 broker:
@@ -49,40 +70,34 @@ service:
     enabled: true
     passphrase: ""  # Optional: Add if your TLS key is encrypted
 
-# =============================================================================
-# CONTAINER IMAGE REGISTRY
-# =============================================================================
-# Use Solace's private GCR registry for all images (requires imagePullSecret)
-# Comment out to use default Docker Hub registry
+# Global Configuration
 global:
+  # Use internal GCR registry for all images (requires imagePullSecret)
+  # Comment out to use default Docker Hub registry
   imageRegistry: gcr.io/gcp-maas-prod
 
-# =============================================================================
-# BUNDLED PERSISTENCE (PostgreSQL + SeaweedFS)
-# =============================================================================
-# Deploy in-cluster PostgreSQL and SeaweedFS for data persistence
-# For production, consider using external managed services instead
-# See: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/persistence
+  # Persistence Configuration
+  # Uses external PostgreSQL and S3-compatible storage (recommended for production)
   persistence:
-    enabled: true
-    namespaceId: "solace-agent-mesh-bundled"  # Must be unique per SAM installation
+    namespaceId: "solace-agent-mesh-external"  # Must be unique per SAM installation - change for your deployment
 
-# =============================================================================
-# PERSISTENCE LAYER OVERRIDES (Optional)
-# =============================================================================
-# When using Solace's GCR registry, specify GCR-specific image tags
-# When using Docker Hub, these overrides are not needed
-persistence-layer:
-  postgresql:
-    image:
-      tag: "18.0-trixie"  # GCR tag (Docker Hub default: "18.0")
-    # persistence:
-    #   storageClassName: "gp3"  # Optional: Kubernetes storage class (e.g., gp3 for AWS EBS)
-  seaweedfs:
-    image:
-      tag: "3.97-compliant"  # GCR tag (Docker Hub default: "3.97")
-    # persistence:
-    #   storageClassName: "gp3"  # Optional: Kubernetes storage class
+dataStores:
+  database:
+    protocol: "postgresql+psycopg2"
+    host: ""
+    port: "5432"
+    adminUsername: ""
+    adminPassword: ""
+    # Application database user password (REQUIRED for external persistence)
+    # This single password will be used for all database users created by SAM
+    # (webui, orchestrator, platform, and all agents)
+    # Generate a strong password and keep it secure
+    applicationPassword: ""
+  s3:
+    endpointUrl: ""
+    bucketName: ""
+    accessKey: ""
+    secretKey: ""
 
 # SAM Deployment Configuration
 samDeployment:
@@ -101,5 +116,5 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.4
+      tag: 1.6.3
       pullPolicy: Always

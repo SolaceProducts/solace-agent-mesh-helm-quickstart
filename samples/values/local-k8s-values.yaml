@@ -29,8 +29,6 @@ sam:
   # Session secret (you can use any string for local dev)
   sessionSecretKey: "local-dev-secret-key-change-me"
 
-  # Enterprise mode enabled but with OIDC disabled for local dev
-  enterprise: true
   authorization:
     enabled: false
 
@@ -87,7 +85,7 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.65.45
+    tag: 1.78.9
     pullPolicy: IfNotPresent  # Use IfNotPresent to avoid pulling on every restart
 
   # Agent Deployer image

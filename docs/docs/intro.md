@@ -5,7 +5,11 @@ title: Getting Started
 ---
 # Solace Agent Mesh (SAM) - Helm Chart
 
-This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes.
+This Helm chart deploys Solace Agent Mesh (SAM) Enterprise on Kubernetes.
+
+:::note Enterprise Only
+This Helm chart requires the SAM Enterprise image (`solace-agent-mesh-enterprise`). Community images are not supported for Kubernetes deployments.
+:::
 
 ## Table of Contents
 
@@ -27,8 +31,8 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
   - [Persistence](#persistence)
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
     - [Understanding Roles and Permissions](#understanding-roles-and-permissions)
-    - [Option 1: Updating ConfigMaps Directly (Quick Changes)](#option-1-updating-configmaps-directly-quick-changes)
-    - [Option 2: Updating the Helm Chart (Persistent Changes)](#option-2-updating-the-helm-chart-persistent-changes)
+    - [Configuring User Role Assignment](#configuring-user-role-assignment)
+    - [Defining Custom Roles](#defining-custom-roles)
     - [Common Scope Patterns](#common-scope-patterns)
     - [Verifying User Access](#verifying-user-access)
 - [Troubleshooting](#troubleshooting)
@@ -43,7 +47,7 @@ This Helm chart deploys Solace Agent Mesh (SAM) in enterprise mode on Kubernetes
   - [Deploy on Kubernetes using Helm](https://github.com/SolaceProducts/pubsubplus-kubernetes-helm-quickstart/blob/master/docs/PubSubPlusK8SDeployment.md)
   - [Create an event broker on Solace Cloud](https://docs.solace.com/Cloud/ggs_create_first_service.htm)
 - LLM service credentials (e.g., OpenAI API key)
-- OIDC provider configured (for enterprise mode authentication)
+- OIDC provider configured (for authentication)
 - TLS certificate and key files (only for LoadBalancer/NodePort without Ingress; not needed when using Ingress with ACM/cert-manager)
 - PostgreSQL database (version 17+, for production deployments with external persistence)
 - S3-compatible storage (e.g., Amazon S3, for production deployments with external persistence)
@@ -107,8 +111,13 @@ Sample values: [samples/values](https://github.com/SolaceProducts/solace-agent-m
    - **Note**: When using bundled persistence in managed cloud providers, configure regional node pools (one per availability zone) and a default StorageClass with `volumeBindingMode: WaitForFirstConsumer` to prevent scheduling failures
 
 3. **[`sam-tls-oidc-customer-provided-persistence.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-customer-provided-persistence.yaml)** ⭐ **Production**
-   - OIDC authentication, external PostgreSQL + S3
+   - OIDC authentication with static user assignments, external PostgreSQL + S3
    - For production deployments with managed database/storage
+
+4. **[`sam-tls-oidc-idp-claim-to-role-mappings.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-idp-claim-to-role-mappings.yaml)** ⭐ **Production with IDP Claims**
+   - OIDC authentication with dynamic IDP-based role assignment, external PostgreSQL + S3
+   - For production deployments using identity provider groups/claims for role mapping
+   - Recommended for enterprise deployments with centralized identity management
 
 > **Note**: TLS certificates are only required when using `service.type: LoadBalancer` or `NodePort`. When using Ingress, TLS is managed at the Ingress level (see [Network Configuration Guide](network-configuration)).
 
@@ -515,120 +524,219 @@ global:
 
 ### Role-Based Access Control (RBAC)
 
-When SAM is deployed in enterprise mode, it includes a built-in RBAC system to control user access to tools and features. The RBAC configuration is managed through Kubernetes ConfigMaps.
+SAM includes a built-in RBAC system to control user access to tools and features. The RBAC configuration is managed through Kubernetes ConfigMaps.
 
 #### Understanding Roles and Permissions
 
 The RBAC system consists of:
 1. **Roles**: Named collections of permissions (scopes)
-2. **User Assignments**: Mappings of users (by email) to roles
+2. **User Assignments**: Choose ONE method:
+   - **Dynamic assignments**: Automatic role mapping from IDP claims (OIDC groups/roles)
+   - **Static assignments**: Direct mapping of users (by email) to roles in Helm values
+
 
 By default, two roles are provided:
 - `sam_admin`: Full access to all features (scope: `*`)
 - `sam_user`: Basic access to read artifacts and basic tools
 
-#### Option 1: Updating ConfigMaps Directly (Quick Changes)
+See [Defining Custom Roles](#defining-custom-roles) for information on creating custom roles.
 
-For quick changes to running deployments, you can edit the ConfigMaps directly:
+#### Configuring User Role Assignment
 
-**⚠️ Warning:** Changes made directly to ConfigMaps will be overwritten on the next Helm upgrade. To persist changes, update the Helm chart (Option 2).
+You must choose **ONE** of the following methods for assigning roles to users:
 
-**1. Edit role definitions:**
+##### Method 1: Dynamic Role Assignment (IDP Claims) - Recommended
 
-```bash
-kubectl edit configmap <release-name>-role-definitions
-# Example: kubectl edit configmap agent-mesh-role-definitions
-```
+This method automatically assigns roles based on OIDC claims (groups, roles, etc.) from your identity provider. Users are dynamically assigned roles when they log in based on their IDP group memberships.
 
-Modify the `role-to-scope-definitions.yaml` data:
+**Configure in your values.yaml:**
 
 ```yaml
-data:
-  role-to-scope-definitions.yaml: |
-    roles:
-      sam_admin:
-        description: "Full access for SAM administrators"
-        scopes:
-          - "*"
+sam:
+  oauthProvider:
+    oidc:
+      issuer: "oidc-issuer-url-here" # e.g., https://accounts.google.com
+      clientId: "oidc-client-id-here" # e.g., your-client-id
+      clientSecret: "oidc-client-secret-here" # e.g., your-client-secret
 
-      custom_role:
-        description: "Your custom role"
+  authenticationRbac:
+    # Define custom roles (optional)
+    customRoles:
+      data_engineer:
+        description: "Data engineering team with access to data tools"
         scopes:
-          - "artifact:read"
-          - "tool:custom:*"
+          - "artifact:*"
+          - "tool:data:*"
+          - "sam:connectors:read"
+
+    # Static user assignments (leave empty when using idpClaims)
+    users: []
+
+    # Dynamic role assignment from IDP claims
+    idpClaims:
+      enabled: true
+      oidcProvider: "oidc"  # e.g., "azure", "google", "okta"
+      claimKey: "groups"      # e.g., "groups", "roles", "custom_claim"
+      # Map IDP claim values to SAM roles (built-in or custom)
+      mappings:
+        "admin-group": ["sam_admin"]
+        "engineering-team": ["sam_user"]
+        "data-analysts": ["data_engineer"]  # Example using custom role
+
+    # Default roles (applies to both static and IDP claims methods)
+    # - For IDP claims: assigned when user's claims don't match any mappings
+    # - For static assignments: assigned to authenticated users not explicitly listed in 'users'
+    defaultRoles:
+      - "sam_user"
 ```
 
-**2. Edit user role assignments:**
+**Key fields:**
+- `enabled`: Set to `true` to enable dynamic role assignment
+- `oidcProvider`: Name of your OIDC provider (e.g., "azure", "google", "okta")
+- `claimKey`: The OIDC claim field containing group/role information (commonly "groups" or "roles")
+- `mappings`: Map IDP group names to SAM roles (one group can map to multiple roles)
+- `defaultRoles`: (Top-level under `authenticationRbac`) Roles assigned when users don't have explicit role assignments
 
-```bash
-kubectl edit configmap <release-name>-user-roles
-# Example: kubectl edit configmap agent-mesh-user-roles
-```
+##### Method 2: Static User Assignment
 
-**Note:** Email addresses in user-to-role-assignments must all be lowercase. 
+This method requires manually listing each user and their assigned roles in the Helm values. Use this for small teams or when dynamic assignment is not available.
 
-Modify the `user-to-role-assignments.yaml` data:
+**Configure in your values.yaml:**
 
 ```yaml
-data:
-  user-to-role-assignments.yaml: |
+sam:
+  authenticationRbac:
+    # Define custom roles (optional)
+    customRoles:
+      data_engineer:
+        description: "Data engineering team with access to data tools"
+        scopes:
+          - "artifact:*"
+          - "tool:data:*"
+          - "sam:connectors:read"
+
+    # Static user assignments
     users:
-      admin@example.com:
+      - identity: "admin@example.com"
         roles: ["sam_admin"]
-        description: "SAM Administrator"
-
-      newuser@example.com:
+        description: "SAM Administrator Account"
+      - identity: "user1@example.com"
         roles: ["sam_user"]
-        description: "New User"
+        description: "Standard SAM User"
+      - identity: "engineer@example.com"
+        roles: ["data_engineer"]  # Example using custom role
+        description: "Data Engineer"
+
+    # Dynamic role assignment (disabled when using static assignments)
+    idpClaims:
+      enabled: false
+
+    # Default roles (optional for static assignments)
+    # Assigned to authenticated users not explicitly listed in 'users'
+    defaultRoles:
+      - "data_engineer"
 ```
 
-**3. Restart the deployment to apply changes:**
+**Note:** Email addresses must be lowercase.
 
-```bash
-kubectl rollout restart deployment/<release-name>
-# Example: kubectl rollout restart deployment/solace-agent-mesh
-```
+#### Defining Custom Roles
 
-#### Option 2: Updating the Helm Chart (Persistent Changes)
+SAM comes with two built-in roles (`sam_admin` and `sam_user`), which are sufficient for most deployments. However, if you need custom roles with specific permissions tailored to your organization's needs, you can define them in your Helm values.
 
-To make permanent changes that survive Helm upgrades:
-
-**1. Edit the chart template** `charts/solace-agent-mesh/templates/configmap_sam_config_files.yaml`:
-
-Find the `sam-role-definitions` ConfigMap section (around line 340) and modify roles:
+**Define custom roles in your values.yaml:**
 
 ```yaml
-data:
-  role-to-scope-definitions.yaml: |
-    roles:
-      sam_admin:
-        description: "Full access for SAM administrators"
-        scopes:
-          - "*"
-
-      custom_role:
-        description: "Your custom role"
+sam:
+  authenticationRbac:
+    # Define custom roles (in addition to built-in sam_admin and sam_user)
+    customRoles:
+      data_engineer:
+        description: "Data engineering team with access to data tools and connectors"
         scopes:
           - "artifact:read"
-          - "tool:specific:action"
+          - "artifact:write"
+          - "tool:data:*"
+          - "sam:connectors:read"
+          - "sam:connectors:create"
+
+      viewer:
+        description: "Read-only access to deployments and connectors"
+        scopes:
+          - "artifact:read"
+          - "sam:deployments:read"
+          - "sam:connectors:read"
+
+      power_user:
+        description: "Advanced user with broader tool access"
+        scopes:
+          - "artifact:*"
+          - "tool:*"
+          - "sam:agent_builder:read"
+          - "sam:connectors:*"
+          - "sam:deployments:read"
 ```
 
-Find the `sam-user-roles` ConfigMap section (around line 369) and modify user assignments:
+**Use custom roles in user assignments:**
 
+Once you've defined custom roles, you can assign them to users using either static or dynamic assignment:
+
+*Option 1: Static assignment:*
 ```yaml
-data:
-  user-to-role-assignments.yaml: |
-    users:
-      admin@example.com:
-        roles: ["sam_admin"]
-        description: "SAM Administrator"
+sam:
+  authenticationRbac:
+    customRoles:
+      data_engineer:
+        description: "Data engineering role"
+        scopes:
+          - "artifact:*"
+          - "tool:data:*"
+      viewer:
+        description: "Read-only role"
+        scopes:
+          - "artifact:read"
 
-      user@company.com:
-        roles: ["custom_role"]
-        description: "Custom role user"
+    users:
+      - identity: "admin@example.com"
+        roles: ["sam_admin"]
+        description: "Administrator"
+      - identity: "engineer@example.com"
+        roles: ["data_engineer"]
+        description: "Data Engineer"
+      - identity: "analyst@example.com"
+        roles: ["viewer"]
+        description: "Read-only analyst"
 ```
 
-**2. Upgrade the Helm deployment:**
+*Option 2: Dynamic IDP assignment:*
+```yaml
+sam:
+  authenticationRbac:
+    customRoles:
+      data_engineer:
+        description: "Data engineering role"
+        scopes:
+          - "artifact:*"
+          - "tool:data:*"
+      viewer:
+        description: "Read-only role"
+        scopes:
+          - "artifact:read"
+
+    users: []
+
+    idpClaims:
+      enabled: true
+      oidcProvider: "azure"
+      claimKey: "groups"
+      mappings:
+        "sam-admins": ["sam_admin"]
+        "data-engineering-team": ["data_engineer"]
+        "analysts": ["viewer"]
+
+    defaultRoles: ["viewer"]
+```
+
+**Apply the changes:**
 
 ```bash
 helm upgrade agent-mesh solace-agent-mesh/solace-agent-mesh \
@@ -637,33 +745,78 @@ helm upgrade agent-mesh solace-agent-mesh/solace-agent-mesh \
   --set-file service.tls.key=/path/to/tls.key
 ```
 
-**3. Verify the changes:**
+**Verify the custom roles:**
 
 ```bash
+# Check that custom roles are defined
 kubectl get configmap <release-name>-role-definitions -o yaml
-kubectl get configmap <release-name>-user-roles -o yaml
+
 # Example: kubectl get configmap agent-mesh-role-definitions -o yaml
 ```
 
+You should see your custom roles listed alongside the built-in `sam_admin` and `sam_user` roles.
+
 #### Common Scope Patterns
 
-- `*` - All permissions (admin access)
-- `tool:data:*` - All data-related tools
-- `tool:specific:action` - Specific tool and action
+SAM uses a scope-based permission system. Here are the common scope patterns and their meanings:
+
+**Built-in Role Scopes:**
+
+The `sam_user` role includes these basic scopes:
+- `agent:*:delegate` - Delegate tasks to any agent
+- `tool:basic:read` - Read basic tool information
+- `tool:basic:search` - Search using basic tools
+- `tool:artifact:list` - List artifacts
+- `tool:artifact:load` - Download/load artifacts
+
+The `sam_admin` role includes:
+- `*` - All permissions (full admin access)
+
+**Tool-Related Scopes:**
+
+- `tool:artifact:*` - All artifact operations
 - `tool:artifact:list` - List artifacts
 - `tool:artifact:load` - Download artifacts
+- `tool:artifact:write` - Create/upload artifacts
+- `tool:data:*` - All data analysis tools
+- `tool:basic:*` - All basic tools
+
+**Agent Operations:**
+
+- `agent:*:delegate` - Delegate tasks to all agents
+- `agent:specific_agent:delegate` - Delegate to a specific agent
+
+**Platform Management Scopes:**
+
 - `sam:agent_builder:create` - Create agent builders
-- `sam:agent_builder:read` - Read agent builders
+- `sam:agent_builder:read` - Read/view agent builders
 - `sam:agent_builder:update` - Update agent builders
 - `sam:agent_builder:delete` - Delete agent builders
+- `sam:agent_builder:*` - All agent builder operations
+
+**Connector Management:**
+
 - `sam:connectors:create` - Create connectors
-- `sam:connectors:read` - Read connectors
+- `sam:connectors:read` - Read/view connectors
 - `sam:connectors:update` - Update connectors
 - `sam:connectors:delete` - Delete connectors
+- `sam:connectors:*` - All connector operations
+
+**Deployment Management:**
+
 - `sam:deployments:create` - Create deployments
-- `sam:deployments:read` - Read deployments
+- `sam:deployments:read` - Read/view deployments
 - `sam:deployments:update` - Update deployments
 - `sam:deployments:delete` - Delete deployments
+- `sam:deployments:*` - All deployment operations
+
+**Wildcard Patterns:**
+
+- `*` - All permissions
+- `tool:*` - All tools
+- `tool:data:*` - All data tools
+- `sam:*` - All SAM platform operations
+- `artifact:*` - All artifact operations
 
 #### Verifying User Access
 

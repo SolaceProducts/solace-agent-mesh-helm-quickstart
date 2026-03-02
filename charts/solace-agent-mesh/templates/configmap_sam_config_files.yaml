@@ -91,7 +91,6 @@ data:
       readiness_check_period_seconds: 6   # How often to check readiness
       startup_check_period_seconds: 6    # How often to poll for startup completion
 
-{{- if .Values.sam.enterprise }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -155,7 +154,6 @@ data:
         client_secret: ${OIDC_CLIENT_SECRET}
         redirect_uri: ${OIDC_REDIRECT_URI:http://localhost:8080/callback}
         scope: "openid email profile offline_access"
-{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -300,14 +298,11 @@ data:
           frontend_auth_login_url: ${EXTERNAL_AUTH_SERVICE_URL}/login?provider=${EXTERNAL_AUTH_PROVIDER}
           frontend_use_authorization: ${FRONTEND_USE_AUTHORIZATION, false}
           frontend_redirect_url: ${FRONTEND_REDIRECT_URL, ""}
-          {{- if .Values.sam.enterprise }}
           {{- $featureEnablement := .Values.sam.featureEnablement | default dict }}
           frontend_feature_enablement:
-            agentBuilder: {{ $featureEnablement.agentBuilder | default true }}
-            agentBuilderEdit: {{ $featureEnablement.agentBuilderEdit | default true }}
             awsBedrockEnabled: {{ $featureEnablement.awsBedrockEnabled | default true }}
             background_tasks: {{ $featureEnablement.backgroundTasks | default true }}
-          {{- end }}
+            projectSharingEnabled: {{ $featureEnablement.projectSharingEnabled | default true }}
 
           # Background Tasks Configuration
           background_tasks:
@@ -326,6 +321,16 @@ data:
             type: "${WEB_UI_SESSION_SERVICE_TYPE}"
             database_url: "${WEB_UI_GATEWAY_DATABASE_URL}"
             default_behavior: "PERSISTENT"
+{{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.idpClaims .Values.sam.authenticationRbac.idpClaims.enabled }}
+
+          sam_access_token:
+            enabled: true
+            ttl_seconds: 3600
+
+          trust_manager:
+            enabled: true
+            verification_mode: "strict"
+{{- end }}
 
           # Task logging requires SQL session storage. Either set session_service.type='sql' with a valid database_url, or disable task_logging.enabled
           {{- $taskLogging := .Values.sam.taskLogging | default dict }}
@@ -339,10 +344,6 @@ data:
             hybrid_buffer:
               enabled: {{ $hybridBuffer.enabled | default true }}
               flush_threshold: {{ $hybridBuffer.flushThreshold | default 10 }}
-
-          sam_access_token:
-            enabled: ${SAM_ACCESS_TOKEN_ENABLED, false}  # Enable or disable self-managed access tokens
-            ttl_seconds: 3600
 
           trust_manager:
             enabled: ${TRUST_MANAGER_ENABLED, false}  # Enable or disable the trust manager
@@ -400,14 +401,13 @@ data:
             - "http://127.0.0.1:3000"
             - "http://localhost:8000"
           cors_allowed_origin_regex: ${CORS_ALLOWED_ORIGIN_REGEX}
+{{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.idpClaims .Values.sam.authenticationRbac.idpClaims.enabled }}
 
-          # JWT configuration (validation only - platform doesn't mint tokens)
           sam_access_token:
-            enabled: ${SAM_ACCESS_TOKEN_ENABLED, false}
+            enabled: true
           trust_manager:
-            enabled: ${TRUST_MANAGER_ENABLED, false}
-
-{{- if .Values.sam.enterprise }}
+            enabled: true
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -424,7 +424,32 @@ data:
       type: "none"
 {{- end }}
       role_to_scope_definitions_path: "config/auth/role-to-scope-definitions.yaml"
+{{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.idpClaims .Values.sam.authenticationRbac.idpClaims.enabled }}
+      # IDP claims-based role assignment
+      user_to_role_provider: "idp_claims"
+      idp_claims_config:
+        oidc_provider: {{ required "sam.authenticationRbac.idpClaims.oidcProvider is required when idpClaims is enabled" .Values.sam.authenticationRbac.idpClaims.oidcProvider | quote }}
+        claim_key: {{ required "sam.authenticationRbac.idpClaims.claimKey is required when idpClaims is enabled" .Values.sam.authenticationRbac.idpClaims.claimKey | quote }}
+        mappings:
+        {{- range $claimValue, $roles := .Values.sam.authenticationRbac.idpClaims.mappings }}
+          {{ $claimValue | quote }}:
+          {{- range $roles }}
+            - {{ . }}
+          {{- end }}
+        {{- end }}
+{{- else }}
+      # Static user-to-role assignments
       user_to_role_assignments_path: "config/auth/user-to-role-assignments.yaml"
+{{- end }}
+      # Default roles (applies to both static and IDP claims methods)
+      default_roles:
+        {{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.defaultRoles }}
+        {{- range .Values.sam.authenticationRbac.defaultRoles }}
+        - {{ . | quote }}
+        {{- end }}
+        {{- else }}
+        - "sam_user"
+        {{- end }}
     namespace: ${NAMESPACE}
     gateway_id: ${WEBUI_GATEWAY_ID}
 ---
@@ -451,6 +476,17 @@ data:
           - "tool:basic:search"
           - "tool:artifact:list"
           - "tool:artifact:load"
+          - "project:share"
+{{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.customRoles }}
+{{- range $roleName, $roleConfig := .Values.sam.authenticationRbac.customRoles }}
+      {{ $roleName }}:
+        description: {{ $roleConfig.description | quote }}
+        scopes:
+{{- range $roleConfig.scopes }}
+          - {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -472,5 +508,4 @@ data:
       admin@example.com:
         roles: ["sam_admin"]
         description: "Default SAM Administrator Account - UPDATE IN VALUES"
-{{- end }}
 {{- end }}

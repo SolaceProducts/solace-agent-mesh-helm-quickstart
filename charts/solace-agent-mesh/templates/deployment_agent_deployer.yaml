@@ -1,4 +1,3 @@
-{{- if .Values.sam.enterprise }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,6 +57,12 @@ spec:
           {{- end }}
           image: "{{ .Values.samDeployment.agentDeployer.image.repository }}:{{ .Values.samDeployment.agentDeployer.image.tag }}"
           imagePullPolicy: {{ .Values.samDeployment.agentDeployer.image.pullPolicy }}
+          {{- if .Values.samDeployment.agentDeployer.localCharts.enabled }}
+          volumeMounts:
+            - name: local-charts
+              mountPath: {{ .Values.samDeployment.agentDeployer.localCharts.mountPath }}
+              readOnly: true
+          {{- end }}
           {{- if .Values.samDeployment.resources }}
           resources:
             {{- toYaml .Values.samDeployment.resources.agentDeployer | nindent 12 }}
@@ -88,5 +93,11 @@ spec:
       {{- with .Values.samDeployment.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.samDeployment.agentDeployer.localCharts.enabled }}
+      volumes:
+        - name: local-charts
+          configMap:
+            name: {{ include "sam.fullname" . }}-local-charts
       {{- end }}
 {{- end }}

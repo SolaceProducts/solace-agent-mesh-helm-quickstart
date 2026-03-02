@@ -178,10 +178,8 @@ spec:
             - /app/config/a2a_orchestrator.yaml
             - /app/config/webui_backend.yaml
             - /app/config/platform.yaml
-            {{- if .Values.sam.enterprise }}
             - /app/config/enterprise_config.yaml
             - /app/config/auth/oauth2_server.yaml
-            {{- end }}
           securityContext:
             {{- with .Values.samDeployment.securityContext }}
             {{- toYaml . | nindent 12 }}
@@ -249,7 +247,6 @@ spec:
             sources:
               - configMap:
                   name: {{ include "sam.fullname" $ }}-shared-config
-              {{- if .Values.sam.enterprise }}
               - configMap:
                   name: {{ include "sam.fullname" $ }}-oauth2-server-config
                   items:
@@ -272,7 +269,6 @@ spec:
                   items:
                     - key: user-to-role-assignments.yaml
                       path: auth/user-to-role-assignments.yaml
-              {{- end }}
               - configMap:
                   name: {{ include "sam.fullname" $ }}-orchestrator-config
               - configMap:

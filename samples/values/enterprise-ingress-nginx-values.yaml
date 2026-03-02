@@ -1,9 +1,8 @@
-# SAM Enterprise Mode with NGINX Ingress + cert-manager
+# SAM with NGINX Ingress + cert-manager
 # This example shows how to deploy SAM with NGINX Ingress Controller
 # TLS certificates are automatically provisioned using cert-manager and Let's Encrypt
 
 sam:
-  enterprise: true
   dnsName: "sam.example.com"  # Your DNS hostname
   sessionSecretKey: "change-me-to-secure-random-string"
   oauthProvider:
@@ -97,7 +96,7 @@ samDeployment:
 
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.65.45
+    tag: 1.78.9
     pullPolicy: Always
 
   agentDeployer:

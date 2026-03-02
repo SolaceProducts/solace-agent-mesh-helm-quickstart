@@ -2,7 +2,7 @@ apiVersion: v2
 name: solace-agent-mesh
 description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
 type: application
-version: 1.2.0
+version: 1.2.1
 maintainers:
   - name: Solace
     email: info@solace.com

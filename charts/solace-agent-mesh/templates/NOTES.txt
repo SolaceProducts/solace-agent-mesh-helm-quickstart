@@ -163,15 +163,10 @@ Service TLS: Yes
 {{- else }}
 Service TLS: No
 {{- end }}
-{{- if .Values.sam.enterprise }}
-Mode: Enterprise
 {{- if and .Values.sam.oauthProvider.oidc.issuer (ne .Values.sam.oauthProvider.oidc.issuer "") }}
 OAuth2/OIDC: Enabled
 {{- else }}
 OAuth2/OIDC: Disabled
-{{- end }}
-{{- else }}
-Mode: Community
 {{- end }}
 
 ================================================================================
