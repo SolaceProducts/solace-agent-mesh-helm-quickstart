@@ -163,7 +163,7 @@ Service TLS: Yes
 {{- else }}
 Service TLS: No
 {{- end }}
-{{- if and .Values.sam.oauthProvider.oidc.issuer (ne .Values.sam.oauthProvider.oidc.issuer "") }}
+{{- if and .Values.sam.oauthProvider .Values.sam.oauthProvider.oidc .Values.sam.oauthProvider.oidc.issuer (ne .Values.sam.oauthProvider.oidc.issuer "") }}
 OAuth2/OIDC: Enabled
 {{- else }}
 OAuth2/OIDC: Disabled

@@ -100,4 +100,3 @@ spec:
           configMap:
             name: {{ include "sam.fullname" . }}-local-charts
       {{- end }}
-{{- end }}
