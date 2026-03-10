@@ -13,8 +13,9 @@
 # 1. Start your local cluster: minikube start (or kind/docker-desktop)
 # 2. Install: helm install agent-mesh solace-agent-mesh/solace-agent-mesh -f local-k8s-values.yaml
 # 3. Access via port-forward:
-#      kubectl port-forward svc/agent-mesh-solace-agent-mesh 8000:80 8001:8001
-#      Open: http://localhost:8000
+#      kubectl port-forward svc/agent-mesh-solace-agent-mesh 8000:80 8080:8080
+#      Open: http://localhost:8000 (WebUI)
+#      Platform API: http://localhost:8080
 #    Or via minikube service:
 #      minikube service agent-mesh-solace-agent-mesh
 #
@@ -41,8 +42,11 @@ sam:
 
   # Allow any localhost port for CORS (local development only)
   # This enables port-forward with any port, not just 8000
+  frontendServerUrl: "http://localhost:8000"
+  platformServiceUrl: "http://localhost:8080"
+
   cors:
-    allowedOriginRegex: "https?://(localhost|127\\.0\\.0\\.1):\\d+"
+    allowedOriginRegex: "https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?"
 
 # Solace Broker Configuration
 broker:
@@ -92,5 +96,5 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.1.4
+      tag: 1.6.3
       pullPolicy: IfNotPresent

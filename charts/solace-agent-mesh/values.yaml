@@ -1,7 +1,6 @@
 # Sam configuration
 sam:
-  # This Helm chart requires the SAM Enterprise image (solace-agent-mesh-enterprise).
-  # Community images are not supported for Kubernetes deployments.
+  communityMode: false
 
   # Authentication and authorization configuration
   # When enabled, SAM will enforce RBAC authorization
@@ -280,7 +279,7 @@ samDeployment:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
       tag: 1.6.3
       pullPolicy: Always
-    version: "k8s-1.2.2"
+    version: "k8s-1.2.3"
     # Chart repository base URL for deploying agents and gateways
     chartBaseUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart"
     # Chart version for the unified sam-agent chart (used for both agents and gateways)

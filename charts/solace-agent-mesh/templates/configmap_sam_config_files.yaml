@@ -91,6 +91,7 @@ data:
       readiness_check_period_seconds: 6   # How often to check readiness
       startup_check_period_seconds: 6    # How often to poll for startup completion
 
+{{- if not .Values.sam.communityMode }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -154,6 +155,7 @@ data:
         client_secret: ${OIDC_CLIENT_SECRET}
         redirect_uri: ${OIDC_REDIRECT_URI:http://localhost:8080/callback}
         scope: "openid email profile offline_access"
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -275,6 +277,7 @@ data:
             - "${FRONTEND_SERVER_URL}"
             - "http://localhost:3000"
             - "http://127.0.0.1:3000"
+          cors_allowed_origin_regex: ${CORS_ALLOWED_ORIGIN_REGEX}
 
           enable_embed_resolution: ${ENABLE_EMBED_RESOLUTION, true}
           gateway_artifact_content_limit_bytes: ${GATEWAY_ARTIFACT_LIMIT_BYTES, 10000000}
@@ -408,6 +411,7 @@ data:
           trust_manager:
             enabled: true
 {{- end }}
+{{- if not .Values.sam.communityMode }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -508,4 +512,5 @@ data:
       admin@example.com:
         roles: ["sam_admin"]
         description: "Default SAM Administrator Account - UPDATE IN VALUES"
+{{- end }}
 {{- end }}

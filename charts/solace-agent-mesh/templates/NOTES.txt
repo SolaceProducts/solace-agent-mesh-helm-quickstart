@@ -180,6 +180,86 @@ View logs:
   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
 
 ================================================================================
+TROUBLESHOOTING
+================================================================================
+
+1. Verify services are running:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+  All pods should show STATUS=Running and READY with all containers.
+
+2. Health check verification:
+{{- if .Values.ingress.enabled }}
+{{- $tsHost := .Values.ingress.host }}
+{{- if not $tsHost }}
+  {{- range .Values.ingress.hosts }}
+    {{- if .host }}
+      {{- $tsHost = .host }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- $tsHost = $tsHost | default .Values.sam.dnsName }}
+{{- if .Values.ingress.annotations }}
+  {{- if hasKey .Values.ingress.annotations "external-dns.alpha.kubernetes.io/hostname" }}
+    {{- $tsHost = index .Values.ingress.annotations "external-dns.alpha.kubernetes.io/hostname" }}
+  {{- end }}
+{{- end }}
+{{- $tsTls := false }}
+{{- if and .Values.ingress.tls (gt (len .Values.ingress.tls) 0) }}
+  {{- $tsTls = true }}
+{{- else if and .Values.ingress.annotations (hasKey .Values.ingress.annotations "alb.ingress.kubernetes.io/certificate-arn") }}
+  {{- $tsTls = true }}
+{{- end }}
+{{- $tsScheme := ternary "https" "http" $tsTls }}
+
+  curl -s {{ $tsScheme }}://{{ $tsHost }}/health
+  curl -s {{ $tsScheme }}://{{ $tsHost }}/api/v1/platform/health
+{{- else if eq .Values.service.type "ClusterIP" }}
+{{- if .Values.service.tls.enabled }}
+
+  # After running: kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.fullname" . }} 8443:443 4443:4443
+  curl -sk https://localhost:8443/health
+  curl -sk https://localhost:4443/api/v1/platform/health
+{{- else }}
+
+  # After running: kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.fullname" . }} 8000:80 8080:8080
+  curl -s http://localhost:8000/health
+  curl -s http://localhost:8080/api/v1/platform/health
+{{- end }}
+{{- else }}
+
+  curl -s http://<EXTERNAL-IP>/health
+  curl -s http://<EXTERNAL-IP>:8080/api/v1/platform/health
+{{- end }}
+
+3. CORS / Browser connectivity issues:
+
+  If the Web UI loads but shows errors, or browser console shows CORS errors:
+
+  a) Inspect configured URLs from the K8s secret:
+
+     kubectl get secret {{ include "sam.fullname" . }}-env -n {{ .Release.Namespace }} \
+       -o jsonpath='{.data.FRONTEND_SERVER_URL}' | base64 -d && echo
+     kubectl get secret {{ include "sam.fullname" . }}-env -n {{ .Release.Namespace }} \
+       -o jsonpath='{.data.PLATFORM_SERVICE_URL}' | base64 -d && echo
+
+  b) Verify your browser URL matches FRONTEND_SERVER_URL exactly (including port).
+
+  c) For ClusterIP setups, ensure both WebUI and Platform ports are forwarded:
+
+     kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.fullname" . }} 8000:80 8080:8080
+
+  d) Check browser console (F12 → Console tab) for specific error messages.
+
+4. Common issues:
+
+  - Port mismatch: Browser URL port must match FRONTEND_SERVER_URL exactly
+  - Missing port-forward: Both WebUI (80) and Platform (8080) ports are needed
+  - Pod not ready: Check logs with:
+      kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+================================================================================
 DOCUMENTATION
 ================================================================================
 

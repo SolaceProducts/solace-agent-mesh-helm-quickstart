@@ -1,3 +1,4 @@
+{{- if not .Values.sam.communityMode }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,3 +18,4 @@ data:
     HEALTH_STARTUP_PATH: "/startup"
     READINESS_CHECK_PERIOD: "5"
     STARTUP_CHECK_PERIOD: "5"
+{{- end }}
