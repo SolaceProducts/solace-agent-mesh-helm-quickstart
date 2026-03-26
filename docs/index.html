@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.9.2">
 <title data-rh="true">Getting Started | Solace Agent Mesh</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/img/docusaurus-social-card.jpg"><meta data-rh="true" name="twitter:image" content="https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/img/docusaurus-social-card.jpg"><meta data-rh="true" property="og:url" content="https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Getting Started | Solace Agent Mesh"><meta data-rh="true" name="description" content="This Helm chart deploys Solace Agent Mesh (SAM) Enterprise on Kubernetes."><meta data-rh="true" property="og:description" content="This Helm chart deploys Solace Agent Mesh (SAM) Enterprise on Kubernetes."><link data-rh="true" rel="icon" href="/solace-agent-mesh-helm-quickstart/docs/img/favicon.png"><link data-rh="true" rel="canonical" href="https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/"><link data-rh="true" rel="alternate" href="https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/" hreflang="en"><link data-rh="true" rel="alternate" href="https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/" hreflang="x-default"><script data-rh="true">function insertBanner(){var n=document.createElement("div");n.id="__docusaurus-base-url-issue-banner-container";n.innerHTML='\n<div id="__docusaurus-base-url-issue-banner" style="border: thick solid red; background-color: rgb(255, 230, 179); margin: 20px; padding: 20px; font-size: 20px;">\n   <p style="font-weight: bold; font-size: 30px;">Your Docusaurus site did not load properly.</p>\n   <p>A very common reason is a wrong site <a href="https://docusaurus.io/docs/docusaurus.config.js/#baseUrl" style="font-weight: bold;">baseUrl configuration</a>.</p>\n   <p>Current configured baseUrl = <span style="font-weight: bold; color: red;">/solace-agent-mesh-helm-quickstart/docs/</span> </p>\n   <p>We suggest trying baseUrl = <span id="__docusaurus-base-url-issue-banner-suggestion-container" style="font-weight: bold; color: green;"></span></p>\n</div>\n',document.body.prepend(n);var e=document.getElementById("__docusaurus-base-url-issue-banner-suggestion-container"),s=window.location.pathname,o="/"===s.substr(-1)?s:s+"/";e.innerHTML=o}document.addEventListener("DOMContentLoaded",function(){void 0===window.docusaurus&&insertBanner()})</script><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Getting Started","item":"https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/"}]}</script><link rel="stylesheet" href="/solace-agent-mesh-helm-quickstart/docs/assets/css/styles.4b065cb5.css">
-<script src="/solace-agent-mesh-helm-quickstart/docs/assets/js/runtime~main.328eb78e.js" defer="defer"></script>
+<script src="/solace-agent-mesh-helm-quickstart/docs/assets/js/runtime~main.56f4363b.js" defer="defer"></script>
 <script src="/solace-agent-mesh-helm-quickstart/docs/assets/js/main.aff793c7.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -68,7 +68,7 @@
 <li class="">OIDC provider configured (for authentication)</li>
 <li class="">TLS certificate and key files (only for LoadBalancer/NodePort without Ingress; not needed when using Ingress with ACM/cert-manager)</li>
 <li class="">PostgreSQL database (version 17+, for production deployments with external persistence)</li>
-<li class="">S3-compatible storage (e.g., Amazon S3, for production deployments with external persistence)</li>
+<li class="">Object storage: S3-compatible (e.g., Amazon S3, SeaweedFS), Azure Blob Storage, or Google Cloud Storage (for production deployments with external persistence)</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">Installation<a href="#installation" class="hash-link" aria-label="Direct link to Installation" title="Direct link to Installation" translate="no">​</a></h2>
 <p>Before installing SAM, review the available <a href="#step-3-prepare-and-update-helm-values" class="">configuration templates</a> and customize the values according to your deployment requirements. For detailed configuration options, see the <a href="#configuration-options" class="">Configuration Options</a> section.</p>
@@ -109,14 +109,14 @@
 <li class="">
 <p><strong><a href="https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-customer-provided-persistence.yaml" target="_blank" rel="noopener noreferrer" class=""><code>sam-tls-oidc-customer-provided-persistence.yaml</code></a></strong> ⭐ <strong>Production</strong></p>
 <ul>
-<li class="">OIDC authentication with static user assignments, external PostgreSQL + S3</li>
+<li class="">OIDC authentication with static user assignments, external PostgreSQL + object storage</li>
 <li class="">For production deployments with managed database/storage</li>
 </ul>
 </li>
 <li class="">
 <p><strong><a href="https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-idp-claim-to-role-mappings.yaml" target="_blank" rel="noopener noreferrer" class=""><code>sam-tls-oidc-idp-claim-to-role-mappings.yaml</code></a></strong> ⭐ <strong>Production with IDP Claims</strong></p>
 <ul>
-<li class="">OIDC authentication with dynamic IDP-based role assignment, external PostgreSQL + S3</li>
+<li class="">OIDC authentication with dynamic IDP-based role assignment, external PostgreSQL + object storage</li>
 <li class="">For production deployments using identity provider groups/claims for role mapping</li>
 <li class="">Recommended for enterprise deployments with centralized identity management</li>
 </ul>
@@ -291,7 +291,7 @@
 <p>SAM requires persistent storage for session data and artifacts. You can choose between:</p>
 <ul>
 <li class=""><strong>Bundled Persistence</strong> (Dev/POC): In-cluster PostgreSQL and SeaweedFS</li>
-<li class=""><strong>External Persistence</strong> (Production): Managed PostgreSQL and S3-compatible storage</li>
+<li class=""><strong>External Persistence</strong> (Production): Managed PostgreSQL and object storage (S3, Azure Blob, or GCS)</li>
 </ul>
 <p>For detailed configuration options, image registry settings, and provider-specific examples, see the <a class="" href="/solace-agent-mesh-helm-quickstart/docs/persistence">Persistence Configuration</a> documentation.</p>
 <p><strong>Quick Start (Bundled Persistence):</strong></p>
