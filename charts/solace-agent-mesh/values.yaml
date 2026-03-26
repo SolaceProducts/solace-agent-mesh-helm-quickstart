@@ -259,6 +259,13 @@ samDeployment:
   # persistence-layer.seaweedfs.serviceAccountName when using bundled persistence
   serviceAccount:
     name: solace-agent-mesh-sa
+    annotations: {}
+      # AWS IRSA:
+      # eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/sam-s3-role
+      # Azure Workload Identity:
+      # azure.workload.identity/client-id: <managed-identity-client-id>
+      # GCP Workload Identity:
+      # iam.gke.io/gcp-service-account: sam@project.iam.gserviceaccount.com
 
   # Image pull secret for accessing private container registries
   # This secret is attached to the service account above, allowing all pods
@@ -268,7 +275,7 @@ samDeployment:
   # Main SAM application container image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.83.1
+    tag: 1.97.2
     pullPolicy: Always
 
 
@@ -277,13 +284,13 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.6.3
+      tag: 1.7.0
       pullPolicy: Always
-    version: "k8s-1.2.3"
+    version: "k8s-1.2.4"
     # Chart repository base URL for deploying agents and gateways
     chartBaseUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart"
     # Chart version for the unified sam-agent chart (used for both agents and gateways)
-    chartVersion: "1.2.3"
+    chartVersion: "1.2.4"
     # Local chart mounting options (optional)
     # When enabled, the chart will be mounted from local filesystem instead of fetching remotely
     localCharts:
@@ -348,12 +355,28 @@ dataStores:
     # This single password will be used for all database users (webui, orchestrator, platform, and all agents)
     applicationPassword: ""
     supabaseTenantId: ""  # Supabase project ID (qualifies usernames as username.projectid when using Supabase's connection pooler on an IPv4 network)
+  objectStorage:
+    type: "s3"
+    workloadIdentity:
+      enabled: false
   s3:
     endpointUrl: ""
     bucketName: ""
     connectorSpecBucketName: ""
     accessKey: ""
     secretKey: ""
+    region: "us-east-1"
+  azure:
+    accountName: ""
+    accountKey: ""
+    connectionString: ""
+    containerName: ""
+    connectorSpecContainerName: ""
+  gcs:
+    project: ""
+    credentialsJson: ""
+    bucketName: ""
+    connectorSpecBucketName: ""
 
 persistence-layer:
   postgresql:

@@ -209,10 +209,20 @@ data:
           data_tools_config: *default_data_tools_config
           max_llm_calls_per_task: 25
 
+          {{- $storageType := include "sam.objectStorage.type" . }}
           artifact_service:
+          {{- if eq $storageType "azure" }}
+            type: "azure"
+            container_name: "${AZURE_STORAGE_CONTAINER_NAME}"
+            account_name: "${AZURE_STORAGE_ACCOUNT_NAME}"
+          {{- else if eq $storageType "gcs" }}
+            type: "gcs"
+            bucket_name: "${GCS_BUCKET_NAME}"
+          {{- else }}
             type: "s3"
             bucket_name: "${S3_BUCKET_NAME}"
             endpoint_url: "${S3_ENDPOINT_URL}"
+          {{- end }}
 
           session_service:
             type: "${ORCHESTRATOR_SESSION_SERVICE_TYPE}"
@@ -305,7 +315,12 @@ data:
           frontend_feature_enablement:
             awsBedrockEnabled: {{ $featureEnablement.awsBedrockEnabled | default true }}
             background_tasks: {{ $featureEnablement.backgroundTasks | default true }}
+            binaryArtifactPreview: {{ $featureEnablement.binaryArtifactPreview | default true }}
+            projectIndexing: {{ $featureEnablement.projectIndexing | default true }}
             projectSharingEnabled: {{ $featureEnablement.projectSharingEnabled | default true }}
+            proCodeAgents:
+              enabled: ${ENABLE_ADVANCED_AGENTS, false}
+              allowDockerImages: ${ALLOW_ADVANCED_AGENT_DOCKER_IMAGES, false}
 
           # Background Tasks Configuration
           background_tasks:
@@ -315,10 +330,20 @@ data:
           external_auth_service_url: ${EXTERNAL_AUTH_SERVICE_URL, http://localhost:8080}
           external_auth_provider: ${EXTERNAL_AUTH_PROVIDER, azure}
 
+          {{- $storageType := include "sam.objectStorage.type" . }}
           artifact_service:
+          {{- if eq $storageType "azure" }}
+            type: "azure"
+            container_name: "${AZURE_STORAGE_CONTAINER_NAME}"
+            account_name: "${AZURE_STORAGE_ACCOUNT_NAME}"
+          {{- else if eq $storageType "gcs" }}
+            type: "gcs"
+            bucket_name: "${GCS_BUCKET_NAME}"
+          {{- else }}
             type: "s3"
             bucket_name: "${S3_BUCKET_NAME}"
             endpoint_url: "${S3_ENDPOINT_URL}"
+          {{- end }}
 
           session_service:
             type: "${WEB_UI_SESSION_SERVICE_TYPE}"

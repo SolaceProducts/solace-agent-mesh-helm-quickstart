@@ -31,6 +31,9 @@ spec:
         {{- include "sam.selectorLabels" . | nindent 8 }}
         {{- include "sam.podLabels" . | nindent 8 }}
         app.kubernetes.io/component: core
+        {{- if and (eq (include "sam.objectStorage.type" .) "azure") .Values.dataStores.objectStorage.workloadIdentity.enabled }}
+        azure.workload.identity/use: "true"
+        {{- end }}
     spec:
       serviceAccountName: {{ .Values.samDeployment.serviceAccount.name }}
       {{- if .Values.samDeployment.podSecurityContext }}

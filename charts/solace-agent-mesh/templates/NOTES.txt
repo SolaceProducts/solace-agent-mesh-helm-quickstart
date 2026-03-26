@@ -145,6 +145,14 @@ For production use, consider enabling Ingress:
 CONFIGURATION
 ================================================================================
 
+Namespace ID: {{ .Values.global.persistence.namespaceId }}
+{{- if or (eq .Values.global.persistence.namespaceId "solace-agent-mesh") (eq .Values.global.persistence.namespaceId "") }}
+
+⚠️  NOTE: global.persistence.namespaceId is set to the default value "{{ .Values.global.persistence.namespaceId }}".
+    If multiple SAM deployments share the same broker, each must use a unique namespace ID
+    to avoid topic collisions.
+{{- end }}
+
 Service Type: {{ .Values.service.type }}
 {{- if .Values.service.tls.enabled }}
 Service TLS: Yes

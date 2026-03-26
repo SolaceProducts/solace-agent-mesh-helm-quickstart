@@ -12,20 +12,32 @@ SAM requires persistent storage for session data and artifacts. This page covers
 SAM uses two types of persistent storage:
 
 - **PostgreSQL Database**: Stores session metadata, user data, and application state
-- **S3-Compatible Storage**: Stores artifacts, files, and other binary data in two separate buckets:
-  - **Artifacts bucket**: Stores workflow artifacts and temporary files (fully private)
-  - **Connector specs bucket**: Stores OpenAPI connector specification files (public read access, authenticated write only)
+- **Object Storage (S3, Azure Blob, or GCS)**: Stores artifacts, files, and other binary data in two separate locations:
+  - **Artifacts bucket/container**: Stores workflow artifacts and temporary files (fully private)
+  - **Connector specs bucket/container**: Stores OpenAPI connector specification files (public read access, authenticated write only)
 
-### S3 Bucket Configuration Details
+### Object Storage Type
 
-SAM requires **two separate S3 buckets** with different access requirements:
+The `dataStores.objectStorage.type` value selects which storage backend SAM uses. This determines which `dataStores.*` configuration block is read for credentials and settings:
 
-| Bucket Type | Purpose | Access Requirements | Features Enabled |
-|-------------|---------|---------------------|------------------|
+| Type | Backend | Configuration Block |
+|------|---------|-------------------|
+| `s3` (default) | Amazon S3 or S3-compatible | `dataStores.s3` |
+| `azure` | Azure Blob Storage | `dataStores.azure` |
+| `gcs` | Google Cloud Storage | `dataStores.gcs` |
+
+When bundled persistence is enabled (`global.persistence.enabled: true`), the type is always `s3` (SeaweedFS provides an S3-compatible API).
+
+### Storage Location Details
+
+SAM requires **two separate buckets (S3/GCS) or containers (Azure)** with different access requirements:
+
+| Location Type | Purpose | Access Requirements | Features Enabled |
+|---------------|---------|---------------------|------------------|
 | **Artifacts** | Workflow artifacts, temporary files | Fully private (authenticated read/write only) | Core workflow functionality |
 | **Connector Specs** | OpenAPI specification files | Public read, authenticated write | OpenAPI Connector feature for automatic REST API integrations |
 
-**Why two buckets?**
+**Why two locations?**
 - Different lifecycle and access patterns: artifacts are temporary workflow data, while connector specs are long-lived infrastructure files
 - Security isolation: agents must download connector specs at startup without authentication, but workflow artifacts must remain private
 - Critical infrastructure: agents cannot start without access to connector specification files
@@ -35,7 +47,7 @@ You can choose between two persistence strategies:
 | Strategy | Use Case | Components |
 |----------|----------|------------|
 | **Bundled Persistence** | Development, demos, POC | In-cluster PostgreSQL + SeaweedFS |
-| **External Persistence** | Production deployments | Managed PostgreSQL + S3 (e.g., AWS RDS, Supabase, NeonDB) |
+| **External Persistence** | Production deployments | Managed PostgreSQL + Object Storage (S3, Azure Blob, or GCS) |
 
 ## Option 1: Bundled Persistence (Dev/POC Only)
 
@@ -156,7 +168,7 @@ persistence-layer:
 
 ## Option 2: External Persistence (Production Recommended)
 
-For production deployments, use managed PostgreSQL and S3-compatible storage services for better scalability, reliability, and separation of concerns.
+For production deployments, use managed PostgreSQL and cloud object storage services for better scalability, reliability, and separation of concerns.
 
 When using external persistence, the bundled persistence layer is disabled by default (`global.persistence.enabled: false`).
 
@@ -168,6 +180,8 @@ When using external persistence, the bundled persistence layer is disabled by de
 
 ### Basic External Configuration
 
+The example below shows the default S3 configuration. Set `dataStores.objectStorage.type` to `azure` or `gcs` to use a different backend (see [Azure](#azure-blob-storage) and [GCS](#google-cloud-storage) examples below).
+
 ```yaml
 global:
   persistence:
@@ -175,6 +189,8 @@ global:
     namespaceId: "my-sam-instance"
 
 dataStores:
+  objectStorage:
+    type: "s3"  # "s3" (default), "azure", or "gcs"
   database:
     protocol: "postgresql+psycopg2"
     host: "your-postgres-host"
@@ -259,9 +275,60 @@ dataStores:
     secretKey: "your-secret-key"
 ```
 
-### AWS S3 Bucket Setup and Policy Requirements
+#### Azure Blob Storage
 
-When using external AWS S3, you must create **both buckets** before deploying SAM.
+```yaml
+dataStores:
+  objectStorage:
+    type: "azure"
+  database:
+    protocol: "postgresql+psycopg2"
+    host: "your-postgres-host"
+    port: "5432"
+    adminUsername: "postgres"
+    adminPassword: "your-db-password"
+    applicationPassword: "your-secure-app-password"
+  azure:
+    accountName: "mystorageaccount"
+    accountKey: "your-azure-storage-account-key"
+    containerName: "my-sam-artifacts"
+    connectorSpecContainerName: "my-sam-connector-specs"
+```
+
+You can alternatively use a connection string instead of account name/key:
+
+```yaml
+  azure:
+    connectionString: "DefaultEndpointsProtocol=https;AccountName=mystorageaccount;AccountKey=...;EndpointSuffix=core.windows.net"
+    containerName: "my-sam-artifacts"
+    connectorSpecContainerName: "my-sam-connector-specs"
+```
+
+#### Google Cloud Storage
+
+```yaml
+dataStores:
+  objectStorage:
+    type: "gcs"
+  database:
+    protocol: "postgresql+psycopg2"
+    host: "your-postgres-host"
+    port: "5432"
+    adminUsername: "postgres"
+    adminPassword: "your-db-password"
+    applicationPassword: "your-secure-app-password"
+  gcs:
+    project: "my-gcp-project"
+    credentialsJson: '{"type":"service_account","project_id":"my-gcp-project",...}'
+    bucketName: "my-sam-artifacts"
+    connectorSpecBucketName: "my-sam-connector-specs"
+```
+
+### Object Storage Setup by Provider
+
+#### AWS S3 Bucket Setup and Policy Requirements
+
+When using external AWS S3 (`objectStorage.type: "s3"`), you must create **both buckets** before deploying SAM.
 
 **Create the buckets:**
 
@@ -329,7 +396,184 @@ aws s3api put-bucket-policy \
 - Enables the OpenAPI Connector feature
 - Replace `your-connector-specs-bucket-name` in the policy with your actual bucket name
 
+#### Azure Blob Container Setup
+
+When using Azure Blob Storage (`objectStorage.type: "azure"`), you must create **both containers** before deploying SAM.
+
+**Create a storage account and containers:**
+
+```bash
+# Create storage account
+az storage account create \
+  --name mystorageaccount \
+  --resource-group mygroup \
+  --location eastus \
+  --sku Standard_LRS
+
+# Create artifacts container (private by default)
+az storage container create \
+  --name my-sam-artifacts \
+  --account-name mystorageaccount
+
+# Create connector specs container
+az storage container create \
+  --name my-sam-connector-specs \
+  --account-name mystorageaccount
+```
+
+**Set public read access on the connector specs container:**
+
+```bash
+az storage container set-permission \
+  --name my-sam-connector-specs \
+  --account-name mystorageaccount \
+  --public-access blob
+```
+
+**Assign RBAC roles** to your service principal or managed identity:
+
+```bash
+az role assignment create \
+  --role "Storage Blob Data Contributor" \
+  --assignee <principal-id> \
+  --scope /subscriptions/<sub-id>/resourceGroups/mygroup/providers/Microsoft.Storage/storageAccounts/mystorageaccount
+```
+
+#### GCS Bucket Setup
+
+When using Google Cloud Storage (`objectStorage.type: "gcs"`), you must create **both buckets** before deploying SAM.
+
+**Create the buckets:**
+
+```bash
+# Create artifacts bucket (private by default)
+gsutil mb -p my-gcp-project gs://my-sam-artifacts
+
+# Create connector specs bucket
+gsutil mb -p my-gcp-project gs://my-sam-connector-specs
+```
+
+**Set public read access on the connector specs bucket:**
+
+```bash
+gsutil iam ch allUsers:objectViewer gs://my-sam-connector-specs
+```
+
+**Grant the service account access to both buckets:**
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://my-sam-artifacts \
+  --member="serviceAccount:my-sa@my-gcp-project.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+
+gcloud storage buckets add-iam-policy-binding gs://my-sam-connector-specs \
+  --member="serviceAccount:my-sa@my-gcp-project.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+```
+
+### Workload Identity
+
+Workload identity allows SAM pods to authenticate with cloud storage using the pod's Kubernetes service account identity, eliminating the need for static credentials (access keys, account keys, or JSON key files).
+
+When workload identity is enabled, credential fields (`accessKey`/`secretKey` for S3, `accountKey`/`connectionString` for Azure, `credentialsJson` for GCS) are omitted from Kubernetes secrets.
+
+#### Enabling Workload Identity
+
+```yaml
+dataStores:
+  objectStorage:
+    type: "s3"  # or "azure" or "gcs"
+    workloadIdentity:
+      enabled: true
+```
+
+You must also annotate the SAM service account so your cloud provider trusts it:
+
+```yaml
+samDeployment:
+  serviceAccount:
+    annotations:
+      # Choose the annotation for your cloud provider:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/my-sam-role"                  # AWS IRSA
+      azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"  # Azure Workload Identity
+      iam.gke.io/gcp-service-account: "my-sa@my-project.iam.gserviceaccount.com"  # GCP Workload Identity
+```
+
+#### Per-Provider Setup
+
+**AWS IRSA (IAM Roles for Service Accounts):**
+
+1. Create an IAM role with S3 permissions for both buckets
+2. Associate the role with the SAM Kubernetes service account via the `eks.amazonaws.com/role-arn` annotation
+3. Set `objectStorage.type: "s3"` and `workloadIdentity.enabled: true`
+4. Omit `accessKey` and `secretKey` from `dataStores.s3` — the pod inherits permissions from the IAM role
+
+**Azure Workload Identity:**
+
+1. Create a managed identity with the `Storage Blob Data Contributor` role on the storage account
+2. Establish a federated credential linking the Kubernetes service account to the managed identity
+3. Annotate the service account with `azure.workload.identity/client-id`
+4. Set `objectStorage.type: "azure"` and `workloadIdentity.enabled: true`
+5. Provide `accountName`, `containerName`, and `connectorSpecContainerName` in `dataStores.azure` — omit `accountKey` and `connectionString`
+
+**GCP Workload Identity:**
+
+1. Create a GCP service account with `Storage Object Admin` on both buckets
+2. Bind the Kubernetes service account to the GCP service account via IAM policy binding
+3. Annotate the service account with `iam.gke.io/gcp-service-account`
+4. Set `objectStorage.type: "gcs"` and `workloadIdentity.enabled: true`
+5. Provide `project`, `bucketName`, and `connectorSpecBucketName` in `dataStores.gcs` — omit `credentialsJson`
+
+#### Full Example: Azure with Workload Identity
+
+```yaml
+global:
+  persistence:
+    enabled: false
+    namespaceId: "my-sam-instance"
+
+dataStores:
+  objectStorage:
+    type: "azure"
+    workloadIdentity:
+      enabled: true
+  database:
+    protocol: "postgresql+psycopg2"
+    host: "mydb.postgres.database.azure.com"
+    port: "5432"
+    adminUsername: "postgres"
+    adminPassword: "your-db-password"
+    applicationPassword: "your-secure-app-password"
+  azure:
+    accountName: "mystorageaccount"
+    containerName: "my-sam-artifacts"
+    connectorSpecContainerName: "my-sam-connector-specs"
+
+samDeployment:
+  serviceAccount:
+    annotations:
+      azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"
+```
+
 ## Troubleshooting
+
+### GCS Credentials JSON Format
+
+**Symptoms**: GCS initialization fails with `GCS_CREDENTIALS_JSON contains invalid JSON`.
+
+**Cause**: The `credentialsJson` value must be a raw JSON string, not base64-encoded. A common mistake is double-encoding when the Helm chart already base64-encodes secrets.
+
+**Solution**: Provide the raw JSON service account key:
+```yaml
+dataStores:
+  gcs:
+    credentialsJson: '{"type":"service_account","project_id":"my-project",...}'
+```
+
+If using `--set-file`:
+```bash
+helm install ... --set-file dataStores.gcs.credentialsJson=./service-account-key.json
+```
 
 ### Init Container Stuck in Pending/CrashLoopBackOff
 

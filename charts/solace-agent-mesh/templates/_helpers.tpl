@@ -174,6 +174,42 @@ Get S3 connector specs bucket name
 {{- end }}
 
 {{/*
+Get effective object storage type
+Bundled persistence always uses S3 (SeaweedFS). Otherwise read from values.
+*/}}
+{{- define "sam.objectStorage.type" -}}
+{{- if .Values.global.persistence.enabled -}}s3{{- else -}}{{ .Values.dataStores.objectStorage.type | default "s3" }}{{- end -}}
+{{- end -}}
+
+{{/*
+Get Azure container name
+*/}}
+{{- define "sam.azure.containerName" -}}
+{{- .Values.dataStores.azure.containerName }}
+{{- end -}}
+
+{{/*
+Get Azure connector spec container name
+*/}}
+{{- define "sam.azure.connectorSpecContainerName" -}}
+{{- .Values.dataStores.azure.connectorSpecContainerName }}
+{{- end -}}
+
+{{/*
+Get GCS bucket name
+*/}}
+{{- define "sam.gcs.bucketName" -}}
+{{- .Values.dataStores.gcs.bucketName }}
+{{- end -}}
+
+{{/*
+Get GCS connector spec bucket name
+*/}}
+{{- define "sam.gcs.connectorSpecBucketName" -}}
+{{- .Values.dataStores.gcs.connectorSpecBucketName }}
+{{- end -}}
+
+{{/*
 Database configuration helpers - generates consistent database settings based on namespaceId
 */}}
 

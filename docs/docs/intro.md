@@ -50,7 +50,7 @@ This Helm chart requires the SAM Enterprise image (`solace-agent-mesh-enterprise
 - OIDC provider configured (for authentication)
 - TLS certificate and key files (only for LoadBalancer/NodePort without Ingress; not needed when using Ingress with ACM/cert-manager)
 - PostgreSQL database (version 17+, for production deployments with external persistence)
-- S3-compatible storage (e.g., Amazon S3, for production deployments with external persistence)
+- Object storage: S3-compatible (e.g., Amazon S3, SeaweedFS), Azure Blob Storage, or Google Cloud Storage (for production deployments with external persistence)
 
 ## Installation
 
@@ -111,11 +111,11 @@ Sample values: [samples/values](https://github.com/SolaceProducts/solace-agent-m
    - **Note**: When using bundled persistence in managed cloud providers, configure regional node pools (one per availability zone) and a default StorageClass with `volumeBindingMode: WaitForFirstConsumer` to prevent scheduling failures
 
 3. **[`sam-tls-oidc-customer-provided-persistence.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-customer-provided-persistence.yaml)** ⭐ **Production**
-   - OIDC authentication with static user assignments, external PostgreSQL + S3
+   - OIDC authentication with static user assignments, external PostgreSQL + object storage
    - For production deployments with managed database/storage
 
 4. **[`sam-tls-oidc-idp-claim-to-role-mappings.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-idp-claim-to-role-mappings.yaml)** ⭐ **Production with IDP Claims**
-   - OIDC authentication with dynamic IDP-based role assignment, external PostgreSQL + S3
+   - OIDC authentication with dynamic IDP-based role assignment, external PostgreSQL + object storage
    - For production deployments using identity provider groups/claims for role mapping
    - Recommended for enterprise deployments with centralized identity management
 
@@ -509,7 +509,7 @@ samDeployment:
 SAM requires persistent storage for session data and artifacts. You can choose between:
 
 - **Bundled Persistence** (Dev/POC): In-cluster PostgreSQL and SeaweedFS
-- **External Persistence** (Production): Managed PostgreSQL and S3-compatible storage
+- **External Persistence** (Production): Managed PostgreSQL and object storage (S3, Azure Blob, or GCS)
 
 For detailed configuration options, image registry settings, and provider-specific examples, see the [Persistence Configuration](persistence) documentation.
 

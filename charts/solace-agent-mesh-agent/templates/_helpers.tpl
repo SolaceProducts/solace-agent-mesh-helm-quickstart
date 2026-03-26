@@ -201,7 +201,7 @@ Get S3 bucket name
   {{- $secretName := include "sam.s3.secretName" . }}
   {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
   {{- if not $secret }}{{- fail (printf "S3 secret '%s' not found" $secretName) }}{{- end }}
-  {{- $bucket := index $secret.data "S3_BUCKET" }}
+  {{- $bucket := index $secret.data "S3_BUCKET_NAME" | default (index $secret.data "S3_BUCKET") }}
   {{- if not $bucket }}
     {{- .Values.global.persistence.namespaceId }}
   {{- else }}
@@ -259,6 +259,223 @@ Get S3 secret key
   {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+Detect object storage type from discovered secrets or configuration
+In deployer mode: scan secret labels for s3/azure/gcs service labels
+In standalone mode: infer from which existingSecrets or direct config is set
+*/}}
+{{- define "sam.objectStorage.type" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.azure }}azure
+  {{- else if .Values.persistence.existingSecrets.gcs }}gcs
+  {{- else if or .Values.persistence.existingSecrets.s3 .Values.persistence.s3.endpointUrl }}s3
+  {{- else if .Values.persistence.azure.accountName }}azure
+  {{- else if .Values.persistence.gcs.bucketName }}gcs
+  {{- else }}s3
+  {{- end }}
+{{- else }}
+  {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+  {{- $type := "s3" }}
+  {{- if $allSecrets.items }}
+  {{- range $allSecrets.items }}
+    {{- if and .metadata.labels }}
+      {{- $svc := index .metadata.labels "app.kubernetes.io/service" | default "" }}
+      {{- if eq $svc "azure" }}{{- $type = "azure" }}
+      {{- else if eq $svc "gcs" }}{{- $type = "gcs" }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- $type }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get Azure storage secret name
+*/}}
+{{- define "sam.azure.secretName" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.azure }}
+    {{- .Values.persistence.existingSecrets.azure }}
+  {{- else }}
+    {{- include "sam.fullname" . }}-persistence
+  {{- end }}
+{{- else }}
+  {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+  {{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
+  {{- $found := "" }}
+  {{- range $allSecrets.items }}
+    {{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "azure") }}
+      {{- $found = .metadata.name }}
+    {{- end }}
+  {{- end }}
+  {{- if not $found }}{{- fail "Azure storage secret not found. Make sure the main chart with Azure storage is deployed first." }}{{- end }}
+  {{- $found }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get Azure container name from discovered secret or config
+*/}}
+{{- define "sam.azure.containerName" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.azure }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.azure) }}
+    {{- index $secret.data "AZURE_STORAGE_CONTAINER_NAME" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.azure.containerName }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.azure.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $container := index $secret.data "AZURE_STORAGE_CONTAINER_NAME" }}
+  {{- if not $container }}{{- fail (printf "AZURE_STORAGE_CONTAINER_NAME not found in Azure secret '%s'" $secretName) }}{{- end }}
+  {{- $container | b64dec }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get Azure account name from discovered secret or config
+*/}}
+{{- define "sam.azure.accountName" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.azure }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.azure) }}
+    {{- index $secret.data "AZURE_STORAGE_ACCOUNT_NAME" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.azure.accountName }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.azure.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $name := index $secret.data "AZURE_STORAGE_ACCOUNT_NAME" }}
+  {{- if not $name }}{{- fail (printf "AZURE_STORAGE_ACCOUNT_NAME not found in Azure secret '%s'" $secretName) }}{{- end }}
+  {{- $name | b64dec }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get Azure account key from discovered secret or config
+*/}}
+{{- define "sam.azure.accountKey" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.azure }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.azure) }}
+    {{- index $secret.data "AZURE_STORAGE_ACCOUNT_KEY" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.azure.accountKey }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.azure.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $key := index $secret.data "AZURE_STORAGE_ACCOUNT_KEY" }}
+  {{- if $key }}{{- $key | b64dec }}{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get Azure connection string from discovered secret or config
+*/}}
+{{- define "sam.azure.connectionString" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.azure }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.azure) }}
+    {{- index $secret.data "AZURE_STORAGE_CONNECTION_STRING" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.azure.connectionString }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.azure.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $cs := index $secret.data "AZURE_STORAGE_CONNECTION_STRING" }}
+  {{- if $cs }}{{- $cs | b64dec }}{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get GCS secret name
+*/}}
+{{- define "sam.gcs.secretName" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.gcs }}
+    {{- .Values.persistence.existingSecrets.gcs }}
+  {{- else }}
+    {{- include "sam.fullname" . }}-persistence
+  {{- end }}
+{{- else }}
+  {{- $allSecrets := (lookup "v1" "Secret" .Release.Namespace "") }}
+  {{- if not $allSecrets.items }}{{- fail "Unable to lookup secrets. Make sure you have proper cluster access." }}{{- end }}
+  {{- $found := "" }}
+  {{- range $allSecrets.items }}
+    {{- if and .metadata.labels (eq (index .metadata.labels "app.kubernetes.io/service" | default "") "gcs") }}
+      {{- $found = .metadata.name }}
+    {{- end }}
+  {{- end }}
+  {{- if not $found }}{{- fail "GCS storage secret not found. Make sure the main chart with GCS storage is deployed first." }}{{- end }}
+  {{- $found }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get GCS bucket name from discovered secret or config
+*/}}
+{{- define "sam.gcs.bucketName" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.gcs }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.gcs) }}
+    {{- $bucket := index $secret.data "GCS_BUCKET_NAME" | default (index $secret.data "GCS_BUCKET") }}
+    {{- $bucket | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.gcs.bucketName }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.gcs.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $bucket := index $secret.data "GCS_BUCKET_NAME" | default (index $secret.data "GCS_BUCKET") }}
+  {{- if not $bucket }}{{- fail (printf "GCS_BUCKET_NAME not found in GCS secret '%s'" $secretName) }}{{- end }}
+  {{- $bucket | b64dec }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get GCS credentials JSON from discovered secret or config
+*/}}
+{{- define "sam.gcs.credentialsJson" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.gcs }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.gcs) }}
+    {{- index $secret.data "GCS_CREDENTIALS_JSON" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.gcs.credentialsJson | default "" }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.gcs.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $creds := index $secret.data "GCS_CREDENTIALS_JSON" }}
+  {{- if $creds }}{{- $creds | b64dec }}{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Get GCS project from discovered secret or config
+*/}}
+{{- define "sam.gcs.project" -}}
+{{- if eq .Values.deploymentMode "standalone" }}
+  {{- if .Values.persistence.existingSecrets.gcs }}
+    {{- $secret := (lookup "v1" "Secret" .Release.Namespace .Values.persistence.existingSecrets.gcs) }}
+    {{- index $secret.data "GCS_PROJECT" | b64dec }}
+  {{- else }}
+    {{- .Values.persistence.gcs.project | default "" }}
+  {{- end }}
+{{- else }}
+  {{- $secretName := include "sam.gcs.secretName" . }}
+  {{- $secret := (lookup "v1" "Secret" .Release.Namespace $secretName) }}
+  {{- $proj := index $secret.data "GCS_PROJECT" }}
+  {{- if $proj }}{{- $proj | b64dec }}{{- end }}
+{{- end }}
+{{- end -}}
+
 {{/*
 Database configuration helpers - generates agent database settings based on namespaceId
 */}}
