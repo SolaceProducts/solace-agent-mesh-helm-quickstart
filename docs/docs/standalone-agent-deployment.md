@@ -85,6 +85,8 @@ apps:
       agent_name: "MyAgent"
       display_name: "My Agent"
       model: *general_model
+      model_provider:
+        - "general"
 
       instruction: |
         You are a helpful agent.

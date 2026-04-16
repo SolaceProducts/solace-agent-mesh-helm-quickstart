@@ -27,6 +27,7 @@ spec:
         {{- include "sam.podAnnotations" . | nindent 8 }}
         checksum/config: {{ include (print $.Template.BasePath "/configmap_agent_deployer.yaml") . | sha256sum }}
         checksum/env: {{ include (print $.Template.BasePath "/secret_sam_env.yaml") . | sha256sum }}
+        checksum/env-overrides: {{ include (print $.Template.BasePath "/secret_env_overrides.yaml") . | sha256sum }}
       labels:
         {{- include "sam.selectorLabels" . | nindent 8 }}
         {{- include "sam.podLabels" . | nindent 8 }}

@@ -27,6 +27,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/configmap_sam_config_files.yaml") . | sha256sum }}
         checksum/env: {{ include (print $.Template.BasePath "/secret_sam_env.yaml") . | sha256sum }}
         checksum/loggingConfig: {{ include (print $.Template.BasePath "/logging-configmap.yaml") . | sha256sum }}
+        checksum/env-overrides: {{ include (print $.Template.BasePath "/secret_env_overrides.yaml") . | sha256sum }}
       labels:
         {{- include "sam.selectorLabels" . | nindent 8 }}
         {{- include "sam.podLabels" . | nindent 8 }}

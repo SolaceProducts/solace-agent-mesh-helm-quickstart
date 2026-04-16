@@ -230,10 +230,11 @@ ingress:
 # These are injected into the containers and used for runtime configuration
 # Note: Variables already configured through dedicated values.yaml sections
 # (solaceBroker, llm, sam, tls, global.persistence) should not be duplicated here
-environmentVariables: {}
-  # Example custom variables:
-  # CUSTOM_VAR: "value"
-# ANOTHER_VAR: "another-value"
+environmentVariables:
+  # Feature flags (SAM_FEATURE_<KEY>=true|false)
+  # Flags default to the value in features.yaml; env vars override at runtime.
+  SAM_FEATURE_PROJECT_SHARING: "true"
+  SAM_FEATURE_PROJECT_INDEXING: "true"
 
 # Global Configuration
 global:
@@ -275,7 +276,7 @@ samDeployment:
   # Main SAM application container image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.97.2
+    tag: 1.143.0
     pullPolicy: Always
 
 
@@ -284,17 +285,17 @@ samDeployment:
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.7.0
+      tag: 1.8.2
       pullPolicy: Always
-    version: "k8s-1.2.4"
+    version: "k8s-1.2.5"
     # Chart repository base URL for deploying agents and gateways
     chartBaseUrl: "https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart"
     # Chart version for the unified sam-agent chart (used for both agents and gateways)
-    chartVersion: "1.2.4"
+    chartVersion: "1.2.5"
     # Local chart mounting options (optional)
     # When enabled, the chart will be mounted from local filesystem instead of fetching remotely
     localCharts:
-      enabled: false
+      enabled: true
       # Path where chart will be mounted in the container
       mountPath: "/opt/helm-charts"
 

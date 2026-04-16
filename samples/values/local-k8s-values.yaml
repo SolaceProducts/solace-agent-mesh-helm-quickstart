@@ -89,12 +89,12 @@ samDeployment:
   # Main SAM Image
   image:
     repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: 1.97.2
+    tag: 1.143.0
     pullPolicy: IfNotPresent  # Use IfNotPresent to avoid pulling on every restart
 
   # Agent Deployer image
   agentDeployer:
     image:
       repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: 1.7.0
+      tag: 1.8.2
       pullPolicy: IfNotPresent

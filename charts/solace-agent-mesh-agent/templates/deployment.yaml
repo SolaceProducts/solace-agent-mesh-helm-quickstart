@@ -88,6 +88,11 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ include "sam.fullname" . }}-persistence
+            {{- if .Values.global.persistence.namespaceId }}
+            - secretRef:
+                name: {{ .Values.global.persistence.namespaceId }}-env-overrides
+                optional: true
+            {{- end }}
             - secretRef:
                 name: {{ include "sam.fullname" . }}-env-vars
           command: ["solace-agent-mesh", "run", "--system-env", "/app/config/agent.yaml"]

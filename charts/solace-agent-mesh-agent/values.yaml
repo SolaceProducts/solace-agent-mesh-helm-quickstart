@@ -45,6 +45,7 @@ serviceAccount:
     # azure.workload.identity/client-id: <managed-identity-client-id>
     # GCP Workload Identity:
     # iam.gke.io/gcp-service-account: sam@project.iam.gserviceaccount.com
+
 image:
   repository: solace/solace-agent-mesh
   tag: latest
@@ -93,6 +94,11 @@ service:
     enabled: false
     hostname: ""
     ttl: "300"
+
+# When set, creates a Kubernetes Service with this name on the specified port.
+# Both values are provided by the agent-deployer; direct standalone use is not supported.
+gatewayDnsName: ""
+gatewayPort: ""
 
 resources:
   sam:
