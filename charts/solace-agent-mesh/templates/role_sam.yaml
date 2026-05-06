@@ -1,15 +1,11 @@
-{{- if not .Values.sam.communityMode }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "sam.names.component" (dict "root" . "component" "agent-deployer") }}-role
-  labels:
-    {{- include "sam.labels.standard" (dict "root" . "config" (dict "component" "agent-deployer")) | nindent 4 }}
+  name: {{ include "sam.fullname" . }}-role-sam
 rules:
 - apiGroups: [""]
-  resources: ["pods", "configmaps", "secrets", "services", "serviceaccounts"]
+  resources: ["pods", "configmaps", "secrets", "services"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-{{- end }}

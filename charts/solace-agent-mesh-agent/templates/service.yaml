@@ -1,12 +1,21 @@
 {{- if .Values.gatewayDnsName }}
-{{- $config := dict
-  "name" .Values.gatewayDnsName
-  "component" .Values.component
-  "type" "ClusterIP"
-  "ports" (list
-    (dict "port" (.Values.gatewayPort | int) "targetPort" (.Values.gatewayPort | int) "protocol" "TCP" "name" "gateway")
-  )
-  "annotations" .Values.service.annotations
--}}
-{{- include "sam.service" (dict "root" . "config" $config) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.gatewayDnsName }}
+  labels:
+    {{- include "sam.labels" . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  annotations:
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.gatewayPort }}
+      targetPort: {{ .Values.gatewayPort }}
+      protocol: TCP
+      name: gateway
+  selector:
+    {{- include "sam.selectorLabels" . | nindent 4 }}
 {{- end }}

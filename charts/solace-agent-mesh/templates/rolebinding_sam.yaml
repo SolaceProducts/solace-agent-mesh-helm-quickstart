@@ -1,16 +1,12 @@
-{{- if not .Values.sam.communityMode }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "sam.names.component" (dict "root" . "component" "agent-deployer") }}-rolebinding
-  labels:
-    {{- include "sam.labels.standard" (dict "root" . "config" (dict "component" "agent-deployer")) | nindent 4 }}
+  name: {{ include "sam.fullname" . }}-rolebinding-sam
 subjects:
 - kind: ServiceAccount
-  name: {{ include "sam.names.serviceAccount" (dict "root" . "config" (dict "component" "agent-deployer")) }}
+  name: {{ .Values.samDeployment.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
-  name: {{ include "sam.names.component" (dict "root" . "component" "agent-deployer") }}-role
+  name: {{ include "sam.fullname" . }}-role-sam
   apiGroup: rbac.authorization.k8s.io
-{{- end }}

@@ -43,12 +43,12 @@ This Helm chart requires the SAM Enterprise image (`solace-agent-mesh-enterprise
 - Kubernetes nodes with sufficient disk space (minimum 30 GB recommended; see [Troubleshooting](troubleshooting#insufficient-node-disk-space) if you encounter "no space left on device" errors)
 - Helm 3.19.0+ (Download from https://helm.sh/docs/intro/install/)
 - kubectl configured to communicate with your cluster
-- A Solace Event Broker instance (for production; quickstart uses an embedded broker)
+- A Solace Event Broker instance
   - [Deploy on Kubernetes using Helm](https://github.com/SolaceProducts/pubsubplus-kubernetes-helm-quickstart/blob/master/docs/PubSubPlusK8SDeployment.md)
   - [Create an event broker on Solace Cloud](https://docs.solace.com/Cloud/ggs_create_first_service.htm)
-- LLM service credentials — e.g., OpenAI API key (can be configured post-install via the Model Config UI)
-- OIDC provider configured (optional; required only when `sam.authorization.enabled: true`)
-- TLS certificate and key files (only for LoadBalancer/NodePort without Ingress; not needed for quickstart or when using Ingress with ACM/cert-manager)
+- LLM service credentials (e.g., OpenAI API key)
+- OIDC provider configured (for authentication)
+- TLS certificate and key files (only for LoadBalancer/NodePort without Ingress; not needed when using Ingress with ACM/cert-manager)
 - PostgreSQL database (version 17+, for production deployments with external persistence)
 - Object storage: S3-compatible (e.g., Amazon S3, SeaweedFS), Azure Blob Storage, or Google Cloud Storage (for production deployments with external persistence)
 
@@ -96,21 +96,50 @@ When using your own registry, you'll also need to update the image repository pa
 
 ### Step 3: Prepare and update Helm values
 
-The chart's `values.yaml` works out of the box for quickstart — it deploys SAM with an embedded broker, bundled persistence, and localhost port-forward access. For production, copy the default values and override the relevant sections:
+Choose one of the sample values files based on your deployment needs. Before proceeding, review the [Required Configuration](#required-configuration) section to understand what values you need to provide.
 
-```bash
-helm show values solace-agent-mesh/solace-agent-mesh > custom-values.yaml
-# Edit custom-values.yaml — see the production guidance comments in each section
-```
+Sample values: [samples/values](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/tree/main/samples/values/)
 
-**Key production overrides:**
-- `global.broker.embedded: false` and configure `broker.*` with your Solace broker credentials
-- `global.persistence.enabled: false` and configure `dataStores.*` with your external datastores
-- `sam.authorization.enabled: true` and configure `sam.oauthProvider.oidc.*`
-- `ingress.enabled: true` and configure `ingress.host`
-- `sam.frontendServerUrl: ""` and `sam.platformServiceUrl: ""` (clear the localhost defaults)
+1. **[`sam-tls-bundled-persistence-no-auth.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-bundled-persistence-no-auth.yaml)** ⚠️ **Development Only**
+   - Enterprise features enabled (agent builder), no authentication/RBAC
+   - Bundled persistence (PostgreSQL + SeaweedFS)
+   - For local development and testing only
+
+2. **[`sam-tls-oidc-bundled-persistence.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-bundled-persistence.yaml)** - **POC/Demo**
+   - OIDC authentication, bundled persistence
+   - For quick start, proof-of-concept, or demo environments
+   - **Note**: When using bundled persistence in managed cloud providers, configure regional node pools (one per availability zone) and a default StorageClass with `volumeBindingMode: WaitForFirstConsumer` to prevent scheduling failures
+
+3. **[`sam-tls-oidc-customer-provided-persistence.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-customer-provided-persistence.yaml)** ⭐ **Production**
+   - OIDC authentication with static user assignments, external PostgreSQL + object storage
+   - For production deployments with managed database/storage
+
+4. **[`sam-tls-oidc-idp-claim-to-role-mappings.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/sam-tls-oidc-idp-claim-to-role-mappings.yaml)** ⭐ **Production with IDP Claims**
+   - OIDC authentication with dynamic IDP-based role assignment, external PostgreSQL + object storage
+   - For production deployments using identity provider groups/claims for role mapping
+   - Recommended for enterprise deployments with centralized identity management
 
 > **Note**: TLS certificates are only required when using `service.type: LoadBalancer` or `NodePort`. When using Ingress, TLS is managed at the Ingress level (see [Network Configuration Guide](network-configuration)).
+
+Copy your chosen template and customize it:
+
+```bash
+cp samples/values/sam-tls-oidc-bundled-persistence.yaml custom-values.yaml
+# Edit custom-values.yaml with your configuration
+```
+
+**Key values to update:**
+- `sam.dnsName`: Your DNS hostname
+- `sam.sessionSecretKey`: Generate a secure random string
+- `sam.oauthProvider.oidc`: Your OIDC provider details
+- `sam.authenticationRbac.users`: User email addresses and roles
+- `broker.*`: Your Solace broker credentials
+- `llmService.*`: Your LLM service credentials
+- `samDeployment.imagePullSecret`: **Required** the name of the image pull secret you created in Step 2 (e.g., `solace-image-pull-secret` or `my-registry-secret`)
+- `samDeployment.image.repository`: The image repository path (if you are using your own registry from Step 2, Option 2).
+- `samDeployment.image.tag`: The version of the SAM application image (if you are using a specific version). 
+- `samDeployment.agentDeployer.image.repository`: Agent deployer image repository path (if using your own registry from Step 2, Option 2)
+- `samDeployment.agentDeployer.image.tag`: Agent deployer image version (if using specific version)
 
 ### Step 4: Install the Chart
 
@@ -182,30 +211,9 @@ Before upgrading, always update your Helm repository to get the latest chart ver
 helm repo update solace-agent-mesh
 ```
 
-### Upgrading from 1.2.x to 1.500.0
+### Platform Service Architecture (v1.1.0+)
 
-:::caution Breaking Changes
-Chart 1.500.0 changes several default values. **Existing deployments that pass an explicit values file are not affected** — Helm always uses your explicit values over chart defaults. However, if you rely on chart defaults (no `-f values.yaml`), be aware of the following changes:
-
-- `sam.authorization.enabled` now defaults to `false` (was `true`)
-- `service.type` now defaults to `ClusterIP` (was `LoadBalancer`)
-- `service.tls.enabled` now defaults to `false` (was `true`)
-- `global.persistence.enabled` now defaults to `true` (was `false`)
-- `samDeployment.serviceAccount.name` is now auto-generated (was `solace-agent-mesh-sa`)
-- `imagePullPolicy` now defaults to `IfNotPresent` (was `Always`)
-- Image `repository` fields no longer include the registry prefix — use `global.imageRegistry` or per-image `registry` fields instead
-
-**Recommended upgrade steps:**
-
-1. Export your current values: `helm get values <release> -n <namespace> > current-values.yaml`
-2. Verify your values file explicitly sets `sam.authorization.enabled`, `service.type`, `service.tls.enabled`, and `samDeployment.serviceAccount.name`
-3. If your values use full image paths (e.g., `gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise`), update to the new format: set `global.imageRegistry: gcr.io/gcp-maas-prod` and use short repository names
-4. Upgrade: `helm upgrade <release> solace-agent-mesh/solace-agent-mesh -f current-values.yaml -n <namespace>`
-:::
-
-### Platform Service Architecture (1.1.0+)
-
-Starting with 1.1.0, SAM splits platform management APIs into a separate service for improved architecture and scalability:
+Starting with v1.1.0, SAM splits platform management APIs into a separate service for improved architecture and scalability:
 
 - **WebUI Service** (port 8000/8443): Web interface and gateway
 - **Platform Service** (port 8001/4443): Platform management APIs (agents, deployments, connectors, toolsets)
@@ -281,10 +289,10 @@ curl -k https://$EXTERNAL_IP:4443/api/v1/platform/health
 If you're using `kubectl port-forward` for local development:
 
 ```bash
-kubectl port-forward svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080 -n <namespace>
+kubectl port-forward svc/<release-name> 8000:80 8001:8001
 ```
 
-**Important:** Use ports 8000 and 8080 exactly — they must match `sam.frontendServerUrl` and `sam.platformServiceUrl`. Using different ports will cause CORS errors. See [Network Configuration - Local Development](network-configuration#local-development-with-port-forward) for details.
+**Important:** Use port 8000 specifically - it's pre-configured in CORS allowed origins. Using other ports will cause CORS errors. See [Network Configuration - Local Development](network-configuration#local-development-with-port-forward) for details.
 
 ---
 
@@ -329,100 +337,6 @@ kubectl get pvc -l app.kubernetes.io/instance=<release> -n <namespace>
 ```
 
 The new StatefulSets are created with minimal VCT labels and automatically reattach to the existing PVCs, preserving all your data.
-
----
-
-### Image Registry Configuration (Upgrading to 1.500.0)
-
-:::warning Migration Required
-All users upgrading from 1.2.x must update their values file before running `helm upgrade`. The default `repository` value in 1.2.x included the registry hostname (`gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise`). In 1.500.0, the chart prepends `global.imageRegistry` to `repository` automatically — upgrading without updating your values will produce a double-prefixed image reference that Kubernetes cannot pull, and pods will go into `ImagePullBackOff` immediately.
-:::
-
-Starting with 1.500.0, the registry is separated from the repository. The chart constructs the full image reference as `registry/repository:tag`, where `registry` defaults to `global.imageRegistry` (`gcr.io/gcp-maas-prod`).
-
-**What breaks without migration:**
-```
-# Kubernetes will try to pull this broken image reference:
-gcr.io/gcp-maas-prod/gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise:1.83.1
-```
-
-**Before (1.2.x values):**
-```yaml
-samDeployment:
-  image:
-    repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
-    tag: "1.83.1"
-    pullPolicy: Always
-  agentDeployer:
-    image:
-      repository: gcr.io/gcp-maas-prod/sam-agent-deployer
-      tag: "1.6.3"
-      pullPolicy: Always
-```
-
-**After (1.500.0 values):**
-```yaml
-# global.imageRegistry defaults to gcr.io/gcp-maas-prod — no change needed for GCR users
-samDeployment:
-  image:
-    repository: solace-agent-mesh-enterprise  # registry prefix removed
-    tag: "1.83.1"
-  agentDeployer:
-    image:
-      repository: sam-agent-deployer          # registry prefix removed
-      tag: "1.6.3"
-```
-
-**For air-gap or internal registry users**, set `global.imageRegistry` to redirect all images with a single value:
-```yaml
-global:
-  imageRegistry: my-registry.internal  # all images redirect here
-
-samDeployment:
-  image:
-    repository: solace-agent-mesh-enterprise  # registry prefix removed
-    tag: "1.83.1"
-  agentDeployer:
-    image:
-      repository: sam-agent-deployer          # registry prefix removed
-      tag: "1.6.3"
-```
-
-**Migration steps:**
-
-**Step 1:** Remove the registry hostname from `samDeployment.image.repository` and `samDeployment.agentDeployer.image.repository` in your values file. If you use an internal registry, set `global.imageRegistry` to that registry hostname.
-
-**Step 2:** Validate your updated values file before upgrading — check that all image references resolve correctly:
-```bash
-helm template <release-name> solace-agent-mesh/solace-agent-mesh \
-  -f updated-values.yaml \
-  | grep "image:" | sort -u
-```
-Every image should show the correct registry prefix exactly once (e.g., `gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise:1.83.1`).
-
-**Step 3:** Upgrade:
-```bash
-helm upgrade <release-name> solace-agent-mesh/solace-agent-mesh \
-  -f updated-values.yaml \
-  -n <namespace>
-```
-
----
-
-### Image Pull Policy Change (Upgrading to 1.500.0)
-
-The default `pullPolicy` for all images has changed from `Always` to `IfNotPresent`.
-
-**Impact:** Deployments with pinned tags (e.g., `1.83.1`) are unaffected. If you use mutable tags (e.g., `latest`) or republish images under the same tag, restore the previous behaviour explicitly:
-
-```yaml
-samDeployment:
-  image:
-    pullPolicy: Always
-  agentDeployer:
-    image:
-      pullPolicy: Always
-```
 
 ---
 

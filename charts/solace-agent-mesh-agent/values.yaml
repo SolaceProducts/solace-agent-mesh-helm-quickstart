@@ -1,21 +1,14 @@
 replicaCount: 1
 
-# Image pull secrets for private registries (set by agent-deployer via --set imagePullSecrets[0]=name)
-imagePullSecrets: []
+# Deployment mode: "deployer" or "standalone"
+# - deployer: Deployed by agent-deployer (auto-discovers persistence secrets)
+# - standalone: Direct deployment (requires explicit persistence configuration)
+deploymentMode: "deployer"
 
 global:
-  # Image registry for all images in this chart.
-  # Default: gcr.io/gcp-maas-prod (set by parent chart when deployed via agent-deployer).
-  # Override to redirect all images to an internal mirror registry.
-  imageRegistry: gcr.io/gcp-maas-prod
-
-  # Configure pull-credentials for private registries. When set, the chart creates a
-  # kubernetes.io/dockerconfigjson Secret and injects it into all pod specs.
-  #
-  # Expects the K8s Secret data shape: `{ ".dockerconfigjson": "<base64>" }`
-  # Use: --set-file global.imagePullKey=sam-pull-credentials.json
-  # Note: Mutually exclusive with imagePullSecrets and global.imagePullSecrets.
-  imagePullKey: ""
+  # Optional: Override the default image registry for all images
+  # Uncomment to use internal GCR registry (requires imagePullSecret)
+  # imageRegistry: gcr.io/gcp-maas-prod
 
   persistence:
     namespaceId: "solace-agent-mesh"
@@ -36,15 +29,15 @@ config:
   # Component configuration YAML (required)
   # Provide the configuration as a raw YAML string
   #
-  # When deployed via agent-deployer: provided automatically
-  # When deploying this chart directly: provide via --set-file config.yaml=/path/to/config.yaml
+  # When deploymentMode=deployer: agent-deployer provides this automatically
+  # When deploymentMode=standalone: you must provide this via:
+  #   --set-file config.yaml=/path/to/config.yaml
   #
   # 'agentYaml' is supported for backward compatibility
   yaml: ""
   agentYaml: ""  # Deprecated: use 'yaml' instead
 serviceAccount:
-  name: ""
-  create: true
+  name: solace-agent-mesh-sa
   annotations: {}
     # AWS IRSA:
     # eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/sam-s3-role
@@ -54,33 +47,9 @@ serviceAccount:
     # iam.gke.io/gcp-service-account: sam@project.iam.gserviceaccount.com
 
 image:
-  registry: ""                        # overrides global.imageRegistry for this image only
-  repository: solace-agent-mesh-enterprise
-  tag: "latest"
-  digest: ""                          # when set, takes precedence over tag
-  pullPolicy: IfNotPresent
-
-# Init container image for database initialisation (db-init)
-# Runs on every pod start to create the application user/schema.
-# registry defaults to global.imageRegistry if not set.
-# Set by agent-deployer from the main chart's samDeployment.dbInit.image values.
-dbInit:
-  image:
-    registry: ""
-    repository: postgres
-    tag: "18.0-trixie"
-    digest: ""
-    pullPolicy: IfNotPresent
-
-# Custom CA certificate injection
-# When enabled, a ca-merge init container merges the system CA bundle with any *.crt files
-# from the 'truststore' ConfigMap in the namespace. All containers receive the merged bundle
-# via CA env vars (SSL_CERT_FILE, REQUESTS_CA_BUNDLE, PGSSLROOTCERT, TRUST_STORE).
-#
-# Enabled by the agent-deployer via --set customCA.enabled=true when the main chart has it on.
-customCA:
-  enabled: false
-  configMapName: truststore
+  repository: solace/solace-agent-mesh
+  tag: latest
+  pullPolicy: Always
 
 rollout:
   rollingUpdate: {}
@@ -140,19 +109,16 @@ resources:
       cpu: 2000m
       memory: 2048Mi
 
-# Persistence configuration
-# createSecrets: boolean flag controlling persistence secret creation
-# - true: Chart creates persistence secret from database/s3/azure/gcs values below
-# - false: Use existing secrets specified in existingSecrets section (default)
+# Persistence configuration for standalone mode
+# When deploymentMode=standalone, you must provide either:
+# 1. Existing secret names (recommended for security)
+# 2. Direct credentials (database and s3/azure/gcs sections)
 persistence:
-  createSecrets: false
-
   objectStorage:
     workloadIdentity:
       enabled: false
 
-  # Existing Kubernetes secrets (mode=useExistingSecrets)
-  # Specify secret names that were created externally
+  # Use existing Kubernetes secrets (created separately)
   # This is the recommended approach for production
   existingSecrets:
     database: ""
@@ -160,8 +126,8 @@ persistence:
     azure: ""
     gcs: ""
 
-  # Direct database configuration (mode=createSecret)
-  # Chart will create a secret from these values
+  # Direct database configuration (alternative to existingSecrets.database)
+  # Only used if existingSecrets.database is empty
   database:
     # Full connection URL (postgresql+psycopg2://user:pass@host:port/dbname)
     url: ""

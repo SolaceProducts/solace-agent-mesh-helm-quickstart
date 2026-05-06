@@ -4,7 +4,6 @@ metadata:
   name: {{ include "sam.fullname" . }}-logging-config
   labels:
     {{- include "sam.labels" . | nindent 4 }}
-  {{- include "sam.annotations" . | nindent 2 }}
 data:
   logging_config.yaml: |
     version: 1

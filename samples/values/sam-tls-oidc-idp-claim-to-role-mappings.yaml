@@ -1,0 +1,120 @@
+# Solace Agent Mesh (SAM) Custom Configuration
+# Replace all placeholder values with your actual configuration
+
+# SAM Core Configuration
+sam:
+  # DNS name for accessing SAM (must be DNS-resolvable and point to LoadBalancer IP)
+  dnsName: "sam.example.com"  # TODO: Replace with your actual DNS name
+  # Secret key for session management (generate a secure random string)
+  sessionSecretKey: "change-me-to-a-secure-random-string"
+  # OIDC Authentication Configuration
+  oauthProvider:
+    oidc:
+      issuer: "oidc-issuer-url-here" # e.g., https://accounts.google.com
+      clientId: "oidc-client-id-here" # e.g., your-client-id
+      clientSecret: "oidc-client-secret-here" # e.g., your-client-secret
+
+  # User to role assignments for RBAC
+  authenticationRbac:
+    # Define custom roles (optional)
+    customRoles:
+      data_engineer:
+        description: "Data engineering team with access to data tools"
+        scopes:
+          - "artifact:*"
+          - "tool:data:*"
+          - "sam:connectors:read"
+
+    # Static user assignments (leave empty when using idpClaims)
+    users: []
+
+    # Dynamic role assignment from IDP claims
+    idpClaims:
+      enabled: true
+      oidcProvider: "oidc"
+      claimKey: "groups"      # e.g., "groups", "roles", "custom_claim"
+      # Map IDP claim values to SAM roles (built-in or custom)
+      mappings:
+        "claim_id_1":
+          - sam_admin
+        "claim_id_2":
+          - sam_user
+    # Default roles (applies to both static and IDP claims methods)
+    # - For IDP claims: assigned when user's claims don't match any mappings
+    # - For static assignments: assigned to authenticated users not explicitly listed in 'users'
+    defaultRoles:
+      - "data_engineer"
+
+# Solace Broker Configuration
+broker:
+  url: "wss://broker-url:port" # e.g., wss://mr2zq0g0f1.messaging.solace.cloud:443
+  clientUsername: "broker-username"
+  password: "broker-password"
+  vpn: "broker-vpn-name"
+
+# LLM Service Configuration (e.g., OpenAI)
+llmService:
+  planningModel: "planningModel" # e.g., "gpt-4o"
+  generalModel: "generalModel" # e.g., "gpt-4o"
+  reportModel: "reportModel" # e.g., "gpt-4o"
+  imageModel: "imageModel" # e.g., "dall-e-3"
+  transcriptionModel: "transcriptionModel" # e.g., "whisper-1"
+  llmServiceEndpoint: "https://api.openai.com/v1"
+  llmServiceApiKey: "your-llm-service-api-key"
+
+# Kubernetes Service Configuration
+service:
+  type: LoadBalancer  # Options: LoadBalancer, ClusterIP, NodePort
+  annotations: {}
+  tls:
+    enabled: true
+    passphrase: ""  # Optional: Add if your TLS key is encrypted
+
+# Global Configuration
+global:
+  # Use internal GCR registry for all images (requires imagePullSecret)
+  # Comment out to use default Docker Hub registry
+  imageRegistry: gcr.io/gcp-maas-prod
+
+  # Persistence Configuration
+  # Uses external PostgreSQL and S3-compatible storage (recommended for production)
+  persistence:
+    namespaceId: "solace-agent-mesh-external"  # Must be unique per SAM installation - change for your deployment
+
+dataStores:
+  database:
+    protocol: "postgresql+psycopg2"
+    host: ""
+    port: "5432"
+    adminUsername: ""
+    adminPassword: ""
+    # Application database user password (REQUIRED for external persistence)
+    # This single password will be used for all database users created by SAM
+    # (webui, orchestrator, platform, and all agents)
+    # Generate a strong password and keep it secure
+    applicationPassword: ""
+  s3:
+    endpointUrl: ""
+    bucketName: ""
+    accessKey: ""
+    secretKey: ""
+
+# SAM Deployment Configuration
+samDeployment:
+
+  # Required when using GCR registry
+  imagePullSecret: gcr-reg-secret
+
+  # Main SAM Image
+  image:
+    repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
+    tag: 1.211.0
+    pullPolicy: Always
+
+  # Agent Deployer image
+  # This container is responsible for deploying and managing agents
+  agentDeployer:
+    image:
+      repository: gcr.io/gcp-maas-prod/sam-agent-deployer
+      tag: 1.8.2
+      pullPolicy: Always

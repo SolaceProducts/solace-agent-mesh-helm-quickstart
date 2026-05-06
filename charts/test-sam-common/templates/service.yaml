@@ -1,3 +1,0 @@
-{{- if .Values.service }}
-{{- include "sam.service" (dict "root" . "config" .Values.service) }}
-{{- end }}

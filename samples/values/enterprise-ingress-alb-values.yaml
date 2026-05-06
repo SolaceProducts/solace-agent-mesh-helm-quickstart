@@ -1,0 +1,123 @@
+# SAM with AWS ALB Ingress
+# This example shows how to deploy SAM with Ingress using AWS ALB for production use
+# TLS termination happens at ALB level using ACM certificates
+
+sam:
+  dnsName: "sam.example.com"  # Your DNS hostname
+  sessionSecretKey: "change-me-to-secure-random-string"
+  oauthProvider:
+    oidc:
+      issuer: "https://login.microsoftonline.com/YOUR-TENANT-ID/v2.0"
+      clientId: "your-client-id"
+      clientSecret: "your-client-secret"
+
+broker:
+  url: "tcps://your-broker.messaging.solace.cloud:55443"
+  clientUsername: "your-username"
+  password: "your-password"
+  vpn: "your-vpn"
+
+llmService:
+  planningModel: "gpt-4o"
+  generalModel: "gpt-4o"
+  reportModel: "gpt-4o"
+  imageModel: "dall-e-3"
+  transcriptionModel: "whisper-1"
+  llmServiceEndpoint: "https://api.openai.com/v1"
+  llmServiceApiKey: "your-openai-api-key"
+
+# Service Configuration
+# Use ClusterIP when Ingress is enabled
+service:
+  type: ClusterIP
+  tls:
+    enabled: false  # ALB handles TLS termination
+
+# Ingress Configuration for AWS ALB
+ingress:
+  enabled: true
+  className: "alb"
+
+  # Auto-configure paths (recommended)
+  # Automatically sets up routing for WebUI, Platform API, and Auth services
+  autoConfigurePaths: true
+
+  # Hostname (leave empty for ALB - accepts all traffic)
+  host: ""
+
+  annotations:
+    # SSL redirect from HTTP to HTTPS
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig":{ "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+
+    # REQUIRED: ACM certificate ARN for HTTPS URL generation
+    # The chart detects HTTPS from this annotation and generates https:// URLs
+    # Critical for OAuth - without it, OAuth redirect URIs will be http:// causing authentication failures
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:ACCOUNT-ID:certificate/CERTIFICATE-ID
+
+    # ALB configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+
+    # Health check (checks webui service for overall pod health)
+    # Note: Platform service has its own health endpoint at /api/v1/platform/health
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/success-codes: "200"
+
+    # SSL policy
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-Ext-2018-06
+
+    # REQUIRED: Subnets for ALB placement (replace with your public subnets)
+    # ALB needs at least 2 subnets in different availability zones
+    # These must be public subnets with internet gateway access
+    alb.ingress.kubernetes.io/subnets: subnet-xxxxx,subnet-yyyyy
+
+    # External DNS (optional - automatically creates Route53 DNS record)
+    external-dns.alpha.kubernetes.io/hostname: sam.example.com
+
+# Persistence Configuration
+# Global Configuration
+global:
+  # Use internal GCR registry for all images (requires imagePullSecret)
+  # Comment out to use default Docker Hub registry
+  imageRegistry: gcr.io/gcp-maas-prod
+
+  # Uses external PostgreSQL and S3-compatible storage (recommended for production)
+  persistence:
+    namespaceId: "solace-agent-mesh-alb"  # Must be unique per SAM installation - change for your deployment
+
+dataStores:
+  database:
+    protocol: "postgresql+psycopg2"
+    host: ""
+    port: "5432"
+    adminUsername: ""
+    adminPassword: ""
+    # Application database user password (REQUIRED for external persistence)
+    # This single password will be used for all database users created by SAM
+    applicationPassword: ""
+  s3:
+    endpointUrl: ""
+    bucketName: ""
+    accessKey: ""
+    secretKey: ""
+
+# SAM Deployment Configuration
+samDeployment:
+  serviceAccount:
+    name: solace-agent-mesh-sa
+
+  # Required when using GCR registry
+  imagePullSecret: gcr-reg-secret
+
+  image:
+    repository: gcr.io/gcp-maas-prod/solace-agent-mesh-enterprise
+    tag: 1.211.0
+    pullPolicy: Always
+
+  agentDeployer:
+    image:
+      repository: gcr.io/gcp-maas-prod/sam-agent-deployer
+      tag: 1.8.2
+      pullPolicy: Always

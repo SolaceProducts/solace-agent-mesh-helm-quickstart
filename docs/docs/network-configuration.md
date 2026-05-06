@@ -60,9 +60,9 @@ service:
 **Access SAM:**
 ```bash
 # Port-forward to local machine
-kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080
+kubectl port-forward -n <namespace> svc/sam 8443:443
 
-# Access at http://localhost:8000
+# Access at https://localhost:8443
 ```
 
 **Pros:**
@@ -76,37 +76,48 @@ kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 80
 
 #### Local Development with Port-Forward
 
-For local development (minikube, kind, Docker Desktop):
+For local development (minikube, kind, Docker Desktop), you have two options:
 
-The chart defaults configure SAM for localhost access on ports 8000 and 8080:
+**Option A: Use the local development sample file (Recommended)**
+
+The [`local-k8s-values.yaml`](https://github.com/SolaceProducts/solace-agent-mesh-helm-quickstart/blob/main/samples/values/local-k8s-values.yaml) sample includes CORS configuration that allows any localhost port:
 
 ```bash
-helm install sam solace-agent-mesh/solace-agent-mesh
-
-kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080
+helm install agent-mesh solace-agent-mesh/solace-agent-mesh -f local-k8s-values.yaml
 ```
 
-| Local Port | Service | Purpose |
-|------------|---------|---------|
+With this sample, you can use any port or even `minikube service`:
+```bash
+# Any port works
+kubectl port-forward svc/<release-name> 9000:80 9001:8001
+
+# Or use minikube service
+minikube service <release-name>
+```
+
+**Option B: Use specific ports (if not using the sample file)**
+
+If you're using custom values without `sam.cors.allowedOriginRegex`, use these pre-configured ports:
+
+| Port | Service | Purpose |
+|------|---------|---------|
 | 8000 | WebUI | Web interface and Gateway API |
-| 8080 | Platform Service | Enterprise features (agent builder, deployments, connectors) |
-
-**Important:** Use ports 8000 and 8080 exactly — they must match `sam.frontendServerUrl` and `sam.platformServiceUrl` in the chart defaults. To use different ports, update both the port-forward command and these two values to match.
-
-**Custom CORS configuration**
-
-If you need to allow additional origins beyond the defaults:
+| 8001 | Platform Service | Enterprise features (agent builder, deployments, connectors) |
 
 ```bash
-kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080
+kubectl port-forward -n <namespace> svc/<release-name> 8000:80 8001:8001
 ```
 
-Pre-configured CORS origins:
+**Why port 8000?** It's pre-configured in the Platform Service CORS allowed origins. Using other ports without the CORS regex will cause cross-origin errors.
+
+**Pre-configured CORS origins (without regex):**
 - `http://localhost:8000` ✅
 - `http://localhost:3000` ✅
-- Other ports ❌ (will cause CORS errors unless you add a CORS regex)
+- Other ports ❌ (will cause CORS errors)
 
-To allow any localhost port, add this to your values file:
+**Adding CORS regex to custom values:**
+
+If you have a custom values file and want to enable any localhost port, add:
 
 ```yaml
 sam:
@@ -114,7 +125,7 @@ sam:
     allowedOriginRegex: "https?://(localhost|127\\.0\\.0\\.1):\\d+"
 ```
 
-Note: you must also set `sam.frontendServerUrl` and `sam.platformServiceUrl` to match your chosen ports. The regex only controls CORS — the URL values drive internal routing.
+This uses Python's `re.fullmatch()` to match origins. Leave empty for production deployments.
 
 ---
 
@@ -144,7 +155,7 @@ service:
 NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
 
 # Get assigned NodePort
-NODE_PORT=$(kubectl get svc <release-name>-solace-agent-mesh-core -o jsonpath='{.spec.ports[?(@.name=="webui-tls")].nodePort}')
+NODE_PORT=$(kubectl get svc sam -o jsonpath='{.spec.ports[?(@.name=="webui-tls")].nodePort}')
 
 # Access at https://$NODE_IP:$NODE_PORT
 ```
@@ -184,7 +195,7 @@ service:
 **Access SAM:**
 ```bash
 # Get external IP
-kubectl get svc <release-name>-solace-agent-mesh-core -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+kubectl get svc sam -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 
 # Configure DNS to point to this address
 # Access at https://sam.example.com
@@ -262,9 +273,9 @@ ingress:
 ```
 
 **What gets configured automatically:**
-- `/login`, `/callback`, `/is_token_valid`, `/user_info`, `/refresh_token`, `/exchange-code` → Auth Service
-- `/api/v1/platform/*` → Platform Service
-- `/*` → WebUI Service
+- `/login`, `/callback`, `/is_token_valid`, `/user_info`, `/refresh_token`, `/exchange-code` → Auth Service (port 5050)
+- `/api/v1/platform/*` → Platform Service (port 8080/4443)
+- `/*` → WebUI Service (port 80/443)
 
 **Benefits:**
 - ✅ Simpler configuration (3-5 lines vs 20+ lines)
@@ -316,10 +327,6 @@ ingress:
 **Recommended Configuration (Automatic Paths):**
 
 ```yaml
-# Required: sam.dnsName drives URL and OIDC redirect computation for ALB
-sam:
-  dnsName: "sam.example.com"  # Must match your external hostname
-
 service:
   type: ClusterIP
   tls:
@@ -355,7 +362,7 @@ ingress:
     # REQUIRED: Subnets for ALB placement
     alb.ingress.kubernetes.io/subnets: subnet-xxx,subnet-yyy
 
-    # External DNS (optional - creates Route53 record, but does not affect URL computation)
+    # External DNS (optional)
     external-dns.alpha.kubernetes.io/hostname: sam.example.com
 ```
 
@@ -580,7 +587,7 @@ helm install sam . -f values.yaml
 
 **5. Get the Ingress IP:**
 ```bash
-kubectl get ingress <release-name>-solace-agent-mesh -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+kubectl get ingress sam -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
 **6. Configure DNS:**
@@ -756,7 +763,7 @@ helm install sam . -f values.yaml
 
 **6. Get the Ingress IP:**
 ```bash
-kubectl get ingress <release-name>-solace-agent-mesh -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+kubectl get ingress sam -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
 **7. Configure DNS:**
@@ -1127,7 +1134,7 @@ ingress:
 **Access:**
 ```bash
 # Port-forward both WebUI and Platform Service (use these specific ports for CORS)
-kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080
+kubectl port-forward svc/<release-name> 8000:80 8001:8001
 
 # Visit http://localhost:8000
 ```
@@ -1149,7 +1156,7 @@ ingress:
 **Access:**
 ```bash
 # Get node IP and port
-kubectl get svc <release-name>-solace-agent-mesh-core
+kubectl get svc sam
 # Visit https://<node-ip>:<nodeport>
 ```
 
@@ -1182,9 +1189,6 @@ helm install sam . -f values.yaml \
 ### Example 4: Production with AWS ALB
 
 ```yaml
-sam:
-  dnsName: "sam.example.com"  # Required for ALB — drives URL and OIDC redirect computation
-
 service:
   type: ClusterIP
   tls:
@@ -1408,7 +1412,7 @@ The platform service provides its own health endpoint:
 curl https://sam.example.com/api/v1/platform/health
 
 # Direct to service (within cluster)
-curl http://<release-name>-solace-agent-mesh-core:8080/api/v1/platform/health
+curl http://sam:8080/api/v1/platform/health
 ```
 
 **Response:**

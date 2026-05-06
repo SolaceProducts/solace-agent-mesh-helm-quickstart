@@ -1,5 +1,0 @@
-# Helm automatically ignores these patterns
-# Files listed here are excluded from the chart package and template rendering
-templates/deployment_agent_deployer_new.yaml
-templates/deployment_core_new.yaml
-templates/service_new.yaml
