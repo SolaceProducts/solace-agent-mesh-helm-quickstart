@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "sam.fullname" . }}
+  name: {{ include "sam.names.fullname" . }}
   labels:
-    {{- include "sam.labels" . | nindent 4 }}
+    {{- include "sam.labels.standard" (dict "root" . "config" (dict "component" "core")) | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -36,56 +36,56 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: auth
           - path: /callback
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: auth
           - path: /is_token_valid
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: auth
           - path: /user_info
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: auth
           - path: /refresh_token
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: auth
           - path: /exchange-code
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: auth
           - path: /api/v1/platform
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: platform
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.fullname" . }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: webui
     {{- else }}
@@ -101,7 +101,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "sam.fullname" $ }}
+                name: {{ include "sam.names.component" (dict "root" $ "component" "core") }}
                 port:
                   {{- if .portName }}
                   name: {{ .portName }}

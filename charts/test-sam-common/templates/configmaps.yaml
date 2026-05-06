@@ -1,0 +1,15 @@
+{{/*
+Render ConfigMaps from config/configmaps/*.tpl glob files.
+Filename (without .tpl) becomes the ConfigMap name: {fullname}-{name}
+*/}}
+{{- range $path, $_ := .Files.Glob "config/configmaps/*.tpl" }}
+{{- $name := base $path | trimSuffix ".tpl" }}
+{{- $content := tpl ($.Files.Get $path) $ }}
+{{- if $content }}
+{{- $data := $content | fromYaml }}
+{{- if $data -}}
+---
+{{ include "sam.configMap" (dict "root" $ "config" (dict "name" $name "data" $data)) }}
+{{- end }}
+{{- end }}
+{{- end }}

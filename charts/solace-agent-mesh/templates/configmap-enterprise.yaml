@@ -1,0 +1,40 @@
+{{- if not .Values.sam.communityMode }}
+{{ include "sam.config.metadata" (dict "root" . "name" "enterprise-config") }}
+data:
+  enterprise_config.yaml: |
+    authorization_service:
+{{- if .Values.sam.authorization.enabled }}
+      type: "default_rbac"
+{{- else }}
+      type: "none"
+{{- end }}
+      role_to_scope_definitions_path: "config/auth/role-to-scope-definitions.yaml"
+{{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.idpClaims .Values.sam.authenticationRbac.idpClaims.enabled }}
+      # IDP claims-based role assignment
+      user_to_role_provider: "idp_claims"
+      idp_claims_config:
+        oidc_provider: {{ required "sam.authenticationRbac.idpClaims.oidcProvider is required when idpClaims is enabled" .Values.sam.authenticationRbac.idpClaims.oidcProvider | quote }}
+        claim_key: {{ required "sam.authenticationRbac.idpClaims.claimKey is required when idpClaims is enabled" .Values.sam.authenticationRbac.idpClaims.claimKey | quote }}
+        mappings:
+        {{- range $claimValue, $roles := .Values.sam.authenticationRbac.idpClaims.mappings }}
+          {{ $claimValue | quote }}:
+          {{- range $roles }}
+            - {{ . }}
+          {{- end }}
+        {{- end }}
+{{- else }}
+      # Static user-to-role assignments
+      user_to_role_assignments_path: "config/auth/user-to-role-assignments.yaml"
+{{- end }}
+      # Default roles (applies to both static and IDP claims methods)
+      default_roles:
+        {{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.defaultRoles }}
+        {{- range .Values.sam.authenticationRbac.defaultRoles }}
+        - {{ . | quote }}
+        {{- end }}
+        {{- else }}
+        - "sam_user"
+        {{- end }}
+    namespace: ${NAMESPACE}
+    gateway_id: ${WEBUI_GATEWAY_ID}
+{{- end }}

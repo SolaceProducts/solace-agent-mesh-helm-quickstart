@@ -1,0 +1,4 @@
+{{- range $name, $config := .Values.deployments }}
+---
+{{ include "sam.deployment" (dict "root" $ "config" $config) }}
+{{- end }}
