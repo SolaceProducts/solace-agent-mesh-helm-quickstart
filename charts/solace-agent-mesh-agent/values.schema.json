@@ -1,0 +1,301 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "definitions": {
+    "imageSpec": {
+      "type": "object",
+      "description": "Container image configuration",
+      "properties": {
+        "registry":   { "type": "string", "description": "Overrides global.imageRegistry for this image only" },
+        "repository": { "type": "string", "description": "Image repository name (without registry prefix)" },
+        "tag":        { "type": ["string", "number"], "description": "Image tag. Quote in YAML to avoid float parsing (e.g. '18.0')" },
+        "digest":     { "type": "string", "description": "Image digest (e.g. sha256:abc...). When set, takes precedence over tag" },
+        "pullPolicy": { "type": "string", "enum": ["IfNotPresent", "Always", "Never"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["id"],
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "description": "Number of pod replicas"
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "Image pull secrets for private registries (list of Secret names)",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "sam-common": { "type": "object", "additionalProperties": true, "description": "sam-common library subchart values (no-op at render time; library chart)" },
+    "global": {
+      "type": "object",
+      "description": "Global configuration shared across chart and subcharts",
+      "properties": {
+        "imageRegistry": { "type": "string", "description": "Default image registry for all images" },
+        "imagePullSecrets": {
+          "type": "array",
+          "description": "Image pull secrets applied to all pods (list of Secret names). Propagated from the parent chart by the agent-deployer.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "imagePullKey": {
+          "type": "string",
+          "description": "Pull-credentials JSON for private registries. Expects the K8s Secret data shape `{ \".dockerconfigjson\": \"<base64>\" }`. Use --set-file global.imagePullKey=path/to/creds.json."
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "namespaceId": { "type": "string", "description": "Unique identifier for this SAM installation" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "component": {
+      "type": "string",
+      "enum": ["agent", "gateway"],
+      "description": "Component type: agent or gateway"
+    },
+    "componentType": {
+      "type": "string",
+      "description": "Gateway type identifier (e.g. rest, slack, teams, event_mesh). Required when component is gateway."
+    },
+    "id": {
+      "type": "string",
+      "description": "Component identifier. Must be set non-empty at install/upgrade time; templates enforce this at render time."
+    },
+    "agentId": {
+      "type": "string",
+      "description": "Deprecated: use 'id' instead"
+    },
+    "config": {
+      "type": "object",
+      "description": "Component configuration",
+      "properties": {
+        "yaml":      { "type": "string", "description": "Component configuration YAML string" },
+        "agentYaml": { "type": "string", "description": "Deprecated: use 'yaml' instead" }
+      },
+      "additionalProperties": false
+    },
+    "serviceAccount": {
+      "type": "object",
+      "description": "Kubernetes ServiceAccount configuration",
+      "properties": {
+        "name":        { "type": "string", "description": "ServiceAccount name. Empty = auto-generated." },
+        "create":      { "type": "boolean", "description": "Create the ServiceAccount resource" },
+        "annotations": { "type": "object", "description": "ServiceAccount annotations (e.g. for workload identity)" }
+      },
+      "additionalProperties": false
+    },
+    "image": { "$ref": "#/definitions/imageSpec" },
+    "dbInit": {
+      "type": "object",
+      "description": "Database init container configuration",
+      "properties": {
+        "image": { "$ref": "#/definitions/imageSpec" }
+      },
+      "additionalProperties": false
+    },
+    "customCA": {
+      "type": "object",
+      "description": "Custom CA certificate injection. Enables a ca-merge init container that appends *.crt files from a ConfigMap onto the system CA bundle. Set by the agent-deployer when the main chart has customCA enabled.",
+      "properties": {
+        "enabled":       { "type": "boolean", "description": "Enable custom CA bundle injection via ca-merge init container" },
+        "configMapName": { "type": "string", "description": "Name of the ConfigMap in the release namespace containing *.crt files" }
+      },
+      "additionalProperties": false
+    },
+    "rollout": {
+      "type": "object",
+      "description": "Deployment rollout configuration",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["RollingUpdate", "Recreate"],
+          "description": "Deployment update strategy"
+        },
+        "rollingUpdate": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "podSecurityContext":  { "description": "Pod-level security context (K8s passthrough)" },
+    "securityContext":     { "description": "Container-level security context (K8s passthrough)" },
+    "nodeSelector":        { "type": "object", "description": "Node selector constraints (K8s passthrough)" },
+    "tolerations":         { "type": "array", "description": "Pod tolerations (K8s passthrough)" },
+    "annotations":         { "type": "object", "description": "Deployment annotations (K8s passthrough)" },
+    "podAnnotations":      { "type": "object", "description": "Pod annotations (K8s passthrough)" },
+    "podLabels":           { "type": "object", "description": "Pod labels (K8s passthrough)" },
+    "files": {
+      "type": "array",
+      "description": "Additional files to mount into the container"
+    },
+    "solaceBroker": {
+      "type": "object",
+      "description": "Solace event broker connection configuration",
+      "properties": {
+        "url":                { "type": "string", "description": "Solace event broker connection URL" },
+        "username":           { "type": "string", "description": "Client username for authenticating with the Solace event broker" },
+        "password":           { "type": "string", "description": "Client password for authenticating with the Solace event broker" },
+        "vpn":                { "type": "string", "description": "Solace broker Message VPN name" },
+        "useTemporaryQueues": { "type": "boolean", "description": "Use temporary queues instead of durable queues for agent subscriptions" }
+      },
+      "additionalProperties": false
+    },
+    "llmService": {
+      "type": "object",
+      "description": "LLM service configuration",
+      "properties": {
+        "generalModelName": { "type": "string", "description": "Model name for general tasks" },
+        "endpoint":         { "type": "string", "description": "LLM service API endpoint URL" },
+        "apiKey":           { "type": "string", "description": "LLM service API key" }
+      },
+      "additionalProperties": false
+    },
+    "environmentVariables": {
+      "description": "Custom environment variables injected into the container",
+      "oneOf": [
+        { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } },
+        { "type": "string" }
+      ]
+    },
+    "datadog": {
+      "type": "object",
+      "description": "Datadog tags configuration (internal)",
+      "additionalProperties": true
+    },
+    "service": {
+      "type": "object",
+      "description": "Kubernetes Service configuration",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+          "description": "Service type"
+        },
+        "port":        { "type": ["integer", "string"], "description": "Service port" },
+        "annotations": { "type": "object", "description": "Service annotations" },
+        "dns": {
+          "type": "object",
+          "properties": {
+            "enabled":  { "type": "boolean", "description": "Enable DNS configuration" },
+            "hostname": { "type": "string", "description": "DNS hostname" },
+            "ttl":      { "type": "string", "description": "DNS TTL" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "gatewayDnsName": {
+      "type": "string",
+      "description": "Kubernetes Service name for gateway (set by agent-deployer)"
+    },
+    "gatewayPort": {
+      "type": ["string", "integer"],
+      "description": "Gateway service port (set by agent-deployer)"
+    },
+    "resources": {
+      "type": "object",
+      "description": "Resource requests and limits (K8s passthrough)"
+    },
+    "persistence": {
+      "type": "object",
+      "description": "Persistence configuration for database and object storage",
+      "properties": {
+        "createSecrets": {
+          "type": "boolean",
+          "description": "When true, the chart creates persistence secrets from the inline database/s3/azure/gcs values below. When false (default), pre-created secrets are read from existingSecrets."
+        },
+        "objectStorage": {
+          "type": "object",
+          "properties": {
+            "workloadIdentity": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "description": "Use workload identity for object storage authentication" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "existingSecrets": {
+          "type": "object",
+          "description": "Pre-existing Kubernetes secret names",
+          "properties": {
+            "database": { "type": "string" },
+            "s3":       { "type": "string" },
+            "azure":    { "type": "string" },
+            "gcs":      { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "database": {
+          "type": "object",
+          "description": "Direct database configuration (mode=createSecret)",
+          "properties": {
+            "url":      { "type": "string", "description": "Full connection URL" },
+            "protocol": { "type": "string" },
+            "host":     { "type": "string" },
+            "port":     { "type": ["string", "integer"] },
+            "username": { "type": "string" },
+            "password": { "type": "string" },
+            "database": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "s3": {
+          "type": "object",
+          "description": "Direct S3 configuration",
+          "properties": {
+            "endpointUrl": { "type": "string" },
+            "bucketName":  { "type": "string" },
+            "accessKey":   { "type": "string" },
+            "secretKey":   { "type": "string" },
+            "region":      { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "azure": {
+          "type": "object",
+          "description": "Direct Azure Blob configuration",
+          "properties": {
+            "accountName":      { "type": "string" },
+            "accountKey":       { "type": "string" },
+            "connectionString": { "type": "string" },
+            "containerName":    { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "gcs": {
+          "type": "object",
+          "description": "Direct GCS configuration",
+          "properties": {
+            "project":    { "type": "string" },
+            "bucketName": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "component": { "const": "gateway" }
+        }
+      },
+      "then": {
+        "properties": {
+          "componentType": {
+            "minLength": 1
+          }
+        },
+        "required": ["componentType"]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

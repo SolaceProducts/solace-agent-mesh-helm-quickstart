@@ -4,19 +4,16 @@
 # IMPORTANT: You must also provide an agent configuration file using:
 #   helm install my-agent solace-agent-mesh/sam-agent \
 #     -f agent-standalone-values.yaml \
-#     --set-file config.agentYaml=/path/to/your-agent-config.yaml
-
-# Set deployment mode to standalone
-deploymentMode: "standalone"
+#     --set-file config.yaml=/path/to/your-agent-config.yaml
 
 # Agent identifier (required) - must be unique per agent instance
-agentId: "my-custom-agent"
+id: "my-custom-agent"
 
 # Global configuration
 global:
+  imageRegistry: gcr.io/gcp-maas-prod   # SAM image registry (override for an internal mirror)
   persistence:
-    namespaceId: "solace-agent-mesh"  # Used for database/bucket naming conventions
-  imageRegistry: ""  # Optional: use custom registry
+    namespaceId: "solace-agent-mesh"    # Used for database/bucket naming conventions
 
 # Solace Broker Configuration (required)
 solaceBroker:
@@ -32,42 +29,63 @@ llmService:
   endpoint: "https://api.openai.com/v1"
   apiKey: "your-openai-api-key"
 
-# Persistence Configuration (required for standalone mode)
-# Option 1: Use existing Kubernetes secrets (recommended for production)
+# Persistence: choose ONE of the two options below.
+#
+# Option 1 (recommended for production): reference existing Kubernetes secrets
+#   that you've created out-of-band. Each secret must contain the keys the chart
+#   expects (see inline comments).
+#
+# Option 2: provide credentials inline and let the chart materialize the secrets.
+#   Set `createSecrets: true` and fill in the database/s3/azure/gcs blocks.
+
+# --- Option 1: reference existing secrets (chart default: createSecrets: false) ---
 persistence:
   existingSecrets:
-    database: ""  # Name of existing secret with DATABASE_URL
-    s3: ""        # Name of existing secret with S3 credentials
+    database: "<your-database-secret>"  # must contain DATABASE_URL, PGHOST, PGUSER, PGPASSWORD
+    s3: "<your-s3-secret>"              # must contain S3_ENDPOINT_URL, S3_BUCKET_NAME, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+    # azure: "<your-azure-secret>"      # alternative to s3: AZURE_STORAGE_ACCOUNT_NAME, AZURE_STORAGE_ACCOUNT_KEY (or AZURE_STORAGE_CONNECTION_STRING), AZURE_STORAGE_CONTAINER_NAME
+    # gcs:   "<your-gcs-secret>"        # alternative to s3: GCS_BUCKET_NAME, GCS_PROJECT, GCS_CREDENTIALS_JSON
 
-  # Option 2: Provide credentials directly (will create secrets automatically)
-  # Only used if existingSecrets are empty
-  database:
-    # Full database URL (recommended)
-    url: "postgresql+psycopg2://user:password@host:5432/dbname"
-    # OR provide individual components
-    # protocol: "postgresql+psycopg2"
-    # host: "your-postgres-host"
-    # port: "5432"
-    # username: "your-db-user"
-    # password: "your-db-password"
-    # database: "your-db-name"
-
-  s3:
-    endpointUrl: "https://your-s3-endpoint"  # e.g., https://s3.amazonaws.com
-    bucketName: "your-bucket-name"
-    accessKey: "your-access-key"
-    secretKey: "your-secret-key"
-    region: "us-east-1"
+# --- Option 2: inline credentials (uncomment, then remove or empty Option 1) ---
+# persistence:
+#   createSecrets: true
+#   database:
+#     url: "postgresql+psycopg2://user:password@host:5432/dbname"
+#     # OR provide individual components (used only if `url` is empty):
+#     # protocol: "postgresql+psycopg2"
+#     # host: "your-postgres-host"
+#     # port: "5432"
+#     # username: "your-db-user"
+#     # password: "your-db-password"
+#     # database: "your-db-name"
+#   s3:
+#     endpointUrl: "https://s3.amazonaws.com"
+#     bucketName: "your-bucket-name"
+#     accessKey: "your-access-key"
+#     secretKey: "your-secret-key"
+#     region: "us-east-1"
 
 # Service Account
 serviceAccount:
   name: solace-agent-mesh-sa
 
-# Container Image
+# Image Pull Secrets: choose ONE of the two options below
+#
+# Option A — let the chart manage the pull secret
+#   helm install ... --set-file global.imagePullKey=/path/to/sam-pull-credentials.json
+#   When using this option, comment out the imagePullSecrets block.
+#
+# Option B — pre-create the Secret yourself and reference it here. Useful when
+# multiple agent releases in the same namespace should share one pre-existing secret:
+#   kubectl create secret generic <my-secret-name> -n <ns> --type=kubernetes.io/dockerconfigjson \
+#     --from-file=.dockerconfigjson=/path/to/credentials.json
+imagePullSecrets:
+  - "<my-secret-name>"   # Remove when using Option A
+
 image:
-  repository: solace/solace-agent-mesh
-  tag: latest
-  pullPolicy: Always
+  repository: solace-agent-mesh-enterprise
+  tag: "1.500.0"                        # bump to match your SAM control plane version
+  pullPolicy: IfNotPresent
 
 # Deployment Strategy
 rollout:

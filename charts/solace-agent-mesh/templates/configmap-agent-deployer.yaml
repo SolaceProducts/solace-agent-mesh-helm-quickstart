@@ -1,0 +1,69 @@
+{{- if not .Values.sam.communityMode }}
+{{ include "sam.config.metadata" (dict "root" . "name" "agent-deployer-config" "component" "agent-deployer") }}
+data:
+  HELM_CACHE_HOME: "/tmp"
+  ESCAPE_CONFIGURATION_FILE_SINGLE_QUOTE: "true"
+  JSON_OBJECT_OUTPUT_FORMAT: "json"
+  DEPLOYER_VERSION: {{ .Values.samDeployment.agentDeployer.version | quote }}
+  DEPLOYMENT_ENV: "k8s"
+  HEALTH_SERVER_ENABLED: "true"
+  HEALTH_SERVER_PORT: "8089"
+  HEALTH_LIVENESS_PATH: "/healthz"
+  HEALTH_READINESS_PATH: "/readyz"
+  HEALTH_STARTUP_PATH: "/startup"
+  READINESS_CHECK_PERIOD: "5"
+  STARTUP_CHECK_PERIOD: "5"
+  {{- /* Helm deployment commands for agent/gateway lifecycle */ -}}
+  {{- $effectiveRegistry := .Values.samDeployment.image.registry | default .Values.global.imageRegistry }}
+  {{- $imageRegistryParam := printf " --set image.registry=%s --set global.imageRegistry=%s" $effectiveRegistry .Values.global.imageRegistry }}
+  {{- $dbInitParam := "" }}
+  {{- if .Values.samDeployment.dbInit.image.repository }}
+  {{- $dbInitParam = printf "%s --set dbInit.image.repository=%s" $dbInitParam .Values.samDeployment.dbInit.image.repository }}
+  {{- end }}
+  {{- if .Values.samDeployment.dbInit.image.tag }}
+  {{- $dbInitParam = printf "%s --set dbInit.image.tag=%s" $dbInitParam .Values.samDeployment.dbInit.image.tag }}
+  {{- end }}
+  {{- if .Values.samDeployment.dbInit.image.registry }}
+  {{- $dbInitParam = printf "%s --set dbInit.image.registry=%s" $dbInitParam .Values.samDeployment.dbInit.image.registry }}
+  {{- end }}
+  {{- $workloadIdentityParam := printf " --set persistence.objectStorage.workloadIdentity.enabled=%s" (.Values.dataStores.objectStorage.workloadIdentity.enabled | toString) }}
+  {{- $saAnnotationsParam := "" }}
+  {{- range $key, $value := .Values.samDeployment.serviceAccount.annotations }}
+  {{- $saAnnotationsParam = printf "%s --set serviceAccount.annotations.%s=%s" $saAnnotationsParam (replace "/" "\\/" (replace "." "\\." $key)) ($value | toString) }}
+  {{- end }}
+  {{- $imagePullSecretsParam := "" }}
+  {{- range $secretIdx, $secret := .Values.global.imagePullSecrets }}
+  {{- $imagePullSecretsParam = printf "%s --set global.imagePullSecrets[%d]=%s" $imagePullSecretsParam $secretIdx $secret }}
+  {{- end }}
+  {{- if not (empty (.Values.global.imagePullKey | trim)) }}
+  {{- $autoName := printf "%s-pull-secret" .Release.Name }}
+  {{- $nextIdx := len .Values.global.imagePullSecrets }}
+  {{- $imagePullSecretsParam = printf "%s --set global.imagePullSecrets[%d]=%s" $imagePullSecretsParam $nextIdx $autoName }}
+  {{- end }}
+  {{- $pgParam := "" }}
+  {{- if .Values.global.persistence.enabled }}
+  {{- $pgHost := include "postgresql.host" (index .Subcharts "persistence-layer") }}
+  {{- $pgPort := include "postgresql.port" (index .Subcharts "persistence-layer") }}
+  {{- $pgParam = printf " --set persistence.database.host=%s --set persistence.database.port=%s" $pgHost $pgPort }}
+  {{- else if .Values.dataStores.database.host }}
+  {{- $pgParam = printf " --set persistence.database.host=%s --set persistence.database.port=%s" .Values.dataStores.database.host (.Values.dataStores.database.port | toString) }}
+  {{- end }}
+  {{- $customCAParam := printf " --set customCA.enabled=%s" (.Values.samDeployment.customCA.enabled | toString) }}
+  {{- if .Values.samDeployment.customCA.configMapName }}
+  {{- $customCAParam = printf "%s --set customCA.configMapName=%s" $customCAParam .Values.samDeployment.customCA.configMapName }}
+  {{- end }}
+  {{- $chartUrl := printf "/opt/helm-charts/sam-agent-%s.tgz" .Values.samDeployment.agentDeployer.chartVersion }}
+  {{- $databaseSecretName := "" }}
+  {{- if .Values.global.persistence.enabled }}
+  {{- $databaseSecretName = include "postgresql.secretName" (index .Subcharts "persistence-layer") }}
+  {{- else }}
+  {{- $databaseSecretName = printf "%s-database" (include "sam.names.fullname" .) }}
+  {{- end }}
+  {{- $storageSecretName := printf "%s-storage" (include "sam.names.fullname" .) }}
+  CHART_VERSION: {{ .Values.samDeployment.agentDeployer.chartVersion | quote }}
+  LOCAL_CHARTS_ENABLED: "true"
+  DEPLOY_COMMAND: {{ printf "IMAGE_REPO='{{ imageRepository }}'; IMAGE_TAG='{{ imageTag }}'; DOCKER_SECRET='{{ registrySecretName }}'; GATEWAY_DNS_NAME='{{ gatewayDnsName }}'; GATEWAY_PORT='{{ gatewayPort }}'; if [ -z \"$IMAGE_REPO\" ]; then IMAGE_REPO='%s'; fi; if [ -z \"$IMAGE_TAG\" ]; then IMAGE_TAG='%s'; fi; DOCKER_SECRET_PARAM=''; if [ -n \"$DOCKER_SECRET\" ]; then DOCKER_SECRET_PARAM=\"--set imagePullSecrets[0]=$DOCKER_SECRET\"; fi; GATEWAY_DNS_NAME_PARAM=''; if [ -n \"$GATEWAY_DNS_NAME\" ]; then GATEWAY_DNS_NAME_PARAM=\"--set gatewayDnsName=$GATEWAY_DNS_NAME\"; fi; GATEWAY_PORT_PARAM=''; if [ -n \"$GATEWAY_PORT\" ]; then GATEWAY_PORT_PARAM=\"--set gatewayPort=$GATEWAY_PORT\"; fi; helm install sam-{{ component }}-{{ id }} %s --values {{ values }} --set component={{ component }} --set id={{ id }} --set componentType={{ componentType }} --set persistence.createSecrets=false --set persistence.existingSecrets.database=%s --set persistence.existingSecrets.s3=%s --set solaceBroker.url=${SOLACE_BROKER_URL} --set solaceBroker.username=${SOLACE_BROKER_USERNAME} --set solaceBroker.password=${SOLACE_BROKER_PASSWORD} --set solaceBroker.vpn=${SOLACE_BROKER_VPN} --set llmService.generalModelName=${LLM_SERVICE_GENERAL_MODEL_NAME} --set llmService.endpoint=${LLM_SERVICE_ENDPOINT} --set llmService.apiKey=${LLM_SERVICE_API_KEY} --set image.repository=\"$IMAGE_REPO\" --set image.tag=\"$IMAGE_TAG\" $DOCKER_SECRET_PARAM $GATEWAY_DNS_NAME_PARAM $GATEWAY_PORT_PARAM --set global.persistence.namespaceId=%s%s%s%s%s%s%s%s" .Values.samDeployment.image.repository .Values.samDeployment.image.tag $chartUrl $databaseSecretName $storageSecretName .Values.global.persistence.namespaceId $imageRegistryParam $dbInitParam $workloadIdentityParam $saAnnotationsParam $imagePullSecretsParam $pgParam $customCAParam | quote }}
+  UPDATE_COMMAND: {{ printf "IMAGE_REPO='{{ imageRepository }}'; IMAGE_TAG='{{ imageTag }}'; DOCKER_SECRET='{{ registrySecretName }}'; GATEWAY_DNS_NAME='{{ gatewayDnsName }}'; GATEWAY_PORT='{{ gatewayPort }}'; if [ -z \"$IMAGE_REPO\" ]; then IMAGE_REPO='%s'; fi; if [ -z \"$IMAGE_TAG\" ]; then IMAGE_TAG='%s'; fi; DOCKER_SECRET_PARAM=''; if [ -n \"$DOCKER_SECRET\" ]; then DOCKER_SECRET_PARAM=\"--set imagePullSecrets[0]=$DOCKER_SECRET\"; fi; GATEWAY_DNS_NAME_PARAM=''; if [ -n \"$GATEWAY_DNS_NAME\" ]; then GATEWAY_DNS_NAME_PARAM=\"--set gatewayDnsName=$GATEWAY_DNS_NAME\"; fi; GATEWAY_PORT_PARAM=''; if [ -n \"$GATEWAY_PORT\" ]; then GATEWAY_PORT_PARAM=\"--set gatewayPort=$GATEWAY_PORT\"; fi; helm upgrade -i sam-{{ component }}-{{ id }} %s --values {{ values }} --set component={{ component }} --set id={{ id }} --set componentType={{ componentType }} --set persistence.createSecrets=false --set persistence.existingSecrets.database=%s --set persistence.existingSecrets.s3=%s --set solaceBroker.url=${SOLACE_BROKER_URL} --set solaceBroker.username=${SOLACE_BROKER_USERNAME} --set solaceBroker.password=${SOLACE_BROKER_PASSWORD} --set solaceBroker.vpn=${SOLACE_BROKER_VPN} --set llmService.generalModelName=${LLM_SERVICE_GENERAL_MODEL_NAME} --set llmService.endpoint=${LLM_SERVICE_ENDPOINT} --set llmService.apiKey=${LLM_SERVICE_API_KEY} --set image.repository=\"$IMAGE_REPO\" --set image.tag=\"$IMAGE_TAG\" $DOCKER_SECRET_PARAM $GATEWAY_DNS_NAME_PARAM $GATEWAY_PORT_PARAM --set global.persistence.namespaceId=%s%s%s%s%s%s%s%s" .Values.samDeployment.image.repository .Values.samDeployment.image.tag $chartUrl $databaseSecretName $storageSecretName .Values.global.persistence.namespaceId $imageRegistryParam $dbInitParam $workloadIdentityParam $saAnnotationsParam $imagePullSecretsParam $pgParam $customCAParam | quote }}
+  STATUS_COMMAND: {{ printf "helm status sam-{{ component }}-{{ id }} -o json" | quote }}
+  UNDEPLOY_COMMAND: {{ printf "helm delete sam-{{ component }}-{{ id }} || true" | quote }}
+{{- end }}

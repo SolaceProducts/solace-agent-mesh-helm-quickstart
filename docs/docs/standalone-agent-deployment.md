@@ -18,12 +18,10 @@ There are two ways to deploy SAM agents and workflows:
 1. **Via Agent Deployer** (Default): The SAM platform includes an agent-deployer microservice that dynamically deploys agents via the UI/API (only available for agents)
 2. **Standalone Deployment** (This Guide): Deploy agents and workflows directly using `helm install` commands
 
-Standalone deployment itself supports two modes:
+This guide covers two standalone scenarios:
 
-| Mode | Best for | Persistence config |
-|------|----------|-------------------|
-| **Deployer** | Quickstart environments where a SAM platform is already running | Auto-discovered from existing quickstart secrets via Kubernetes labels |
-| **Standalone** | Isolated deployments, separate databases, or GitOps pipelines | Explicitly provided in the values file |
+- **Deploy alongside a SAM Quickstart** — reuse the broker, PostgreSQL, and object storage that the quickstart already created. Quickest path to add a custom agent in an existing quickstart cluster.
+- **Deploy with your own infrastructure** — supply your own broker, database, and object storage credentials. Use this for isolated deployments, separate databases, or GitOps pipelines.
 
 ## When to Use Standalone Deployment
 
@@ -31,15 +29,15 @@ Use standalone deployment when you want to deploy agents or workflows independen
 
 ## Prerequisites
 
-Before deploying a standalone agent or workflow, you need a Kubernetes cluster with kubectl access, Helm 3.19.0+ installed, a Solace Event Broker with connection URL and credentials, and an LLM service API endpoint and credentials (e.g., OpenAI). You also need a PostgreSQL database (version 17+) for state management and object storage (S3, Azure Blob, or GCS) for file handling---though in deployer mode these are auto-discovered from the existing quickstart installation.
+Before deploying a standalone agent or workflow, you need a Kubernetes cluster with kubectl access, Helm 3.19.0+ installed, a Solace Event Broker with connection URL and credentials, and an LLM service API endpoint and credentials (e.g., OpenAI). You also need a PostgreSQL database (version 17+) for state management and object storage (S3, Azure Blob, or GCS) for file handling---if you are deploying alongside a SAM Quickstart, these are already provisioned and the Quickstart values sample reuses them by name.
 
-## Deployer Mode
+## Deploy Alongside a SAM Quickstart
 
-Deployer mode is the simplest way to deploy a standalone agent or workflow alongside an existing SAM quickstart installation. The chart auto-discovers the quickstart's PostgreSQL and object storage secrets via Kubernetes labels, so you do not need to configure persistence manually.
+This is the simplest path when you already have a SAM Quickstart running and want to add a custom agent as a separate Helm release in the same namespace. The agent reuses the broker, database, and storage secrets the quickstart created — no extra cluster setup is needed.
 
-### Step 1: Prepare Agent or Workflow Configuration File
+### Step 1: Prepare Agent Configuration File
 
-Create a configuration file that defines your agent or workflow. This file is passed to Helm via `--set-file config.yaml=`. All `${...}` variables are resolved at runtime from environment variables that the chart injects.
+Create a configuration file that defines your agent. This file is passed to Helm via `--set-file config.yaml=`. All `${...}` variables are resolved at runtime from environment variables that the chart injects (broker creds, LLM, namespace).
 
 Example agent configuration:
 
@@ -84,6 +82,9 @@ apps:
       supports_streaming: true
       agent_name: "MyAgent"
       display_name: "My Agent"
+      agent_identity:
+        # The agent persists its identity key to a file; this path must be writable.
+        key_persistence: "/tmp/_agent_MyAgent.key"
       model: *general_model
       model_provider:
         - "general"
@@ -115,7 +116,96 @@ apps:
         request_timeout_seconds: 30
 ```
 
-Example workflow structure:
+### Step 2: Prepare Values File
+
+Use the [agent-quickstart-values.yaml](https://raw.githubusercontent.com/SolaceProducts/solace-agent-mesh-helm-quickstart/main/samples/agent/agent-quickstart-values.yaml) sample. Download a copy:
+
+```bash
+curl -O https://raw.githubusercontent.com/SolaceProducts/solace-agent-mesh-helm-quickstart/main/samples/agent/agent-quickstart-values.yaml
+```
+
+The sample is pre-configured for a SAM Quickstart installed with release name `sam`. Required edits:
+
+1. Set `id` to a unique identifier for your agent.
+2. Fill in `llmService.generalModelName`, `endpoint`, and `apiKey`.
+3. If your Quickstart release name is not `sam`, search-and-replace `sam-` with your release name throughout the file. Default secret names follow the chart's `<release>-postgresql` and `<release>-pull-secret` conventions.
+
+The values file points `persistence.existingSecrets.database` and `persistence.existingSecrets.s3` at the secrets the Quickstart already created (`<release>-postgresql` and `<release>-solace-agent-mesh-storage`), so no additional secret setup is required.
+
+:::warning
+The `NAMESPACE` environment variable in the values file is the SAM logical namespace (for example, `solace-agent-mesh`), not the Kubernetes namespace. It must match what the SAM core uses. Verify with: `kubectl exec <core-pod> -c sam-core -- env | grep "^NAMESPACE="`
+:::
+
+### Step 3: Install the Chart
+
+Note: Update the namespace to match existing one.
+
+If installing from the helm repo:
+
+```bash
+helm install my-agent solace-agent-mesh/sam-agent \
+  -n sam \
+  -f agent-quickstart-values.yaml \
+  --set-file config.yaml=./my-agent-config.yaml
+```
+
+:::note
+Alternative, if installing from a local chart:
+```bash
+helm install my-agent ./charts/solace-agent-mesh-agent \
+  -n sam \
+  -f agent-quickstart-values.yaml \
+  --set-file config.yaml=./my-agent-config.yaml
+```
+:::
+
+### Step 4: Verify Deployment
+
+Check the pod is running:
+
+```bash
+kubectl get pods -l app.kubernetes.io/instance=my-agent -n <namespace>
+```
+
+Check the agent logs for successful startup:
+
+```bash
+kubectl logs -l app.kubernetes.io/instance=my-agent -c sam -n <namespace>
+```
+
+Look for these success indicators:
+
+```
+Successfully connected to broker at <your-broker-url>
+Scheduling agent card publishing every 10 seconds
+```
+
+Once the agent card is publishing, the agent should appear in the SAM UI within approximately 10 seconds.
+
+## Using Custom Images
+
+You can deploy a custom-built image---for example, one that packages your own Python tools---by overriding the `image.repository` and `image.tag` values. This works in either deployment scenario.
+
+```yaml
+image:
+  repository: <your-registry>/custom-echo-agent
+  tag: "1.0.0"
+  pullPolicy: Always
+```
+
+For instructions on building custom agent images, see [Building Custom Agent Images](https://solacelabs.github.io/solace-agent-mesh/documentation/developing/tutorials/building-custom-agent-images).
+
+## Deploy With Your Own Infrastructure
+
+This path gives you explicit control over persistence configuration. Use it when you need a separate database, different storage buckets/containers, or when deploying outside a SAM Quickstart environment.
+
+### Why This Path Needs Extra Setup
+
+The chart runs a PostgreSQL init container that creates a dedicated database and user for the agent. This init container needs PostgreSQL admin credentials (`PGHOST`, `PGUSER`, `PGPASSWORD`) to execute `CREATE USER` and `CREATE DATABASE` statements. It also needs `DATABASE_URL` for the main container's connection string. When deploying alongside a SAM Quickstart you can reuse the existing PostgreSQL secret directly; outside that environment, you must provide these credentials manually.
+
+### Step 1: Prepare Agent or Workflow Configuration File
+
+The configuration file format is the same as in the Quickstart scenario. See [Step 1 above](#step-1-prepare-agent-configuration-file) for an agent example. For a workflow, the structure looks like:
 
 ```yaml
 apps:
@@ -157,135 +247,6 @@ apps:
           status: "{{process_payment.output.status}}"
           confirmation: "{{process_payment.output.confirmation_number}}"
 ```
-
-### Step 2: Extract Config from Quickstart
-
-Dump the environment variables from your existing quickstart secret to retrieve the broker and LLM configuration:
-
-```bash
-kubectl get secret <quickstart-release>-environment -n <namespace> -o json | \
-  python3 -c "import sys,json,base64; d=json.load(sys.stdin)['data']; [print(f'{k}: {base64.b64decode(v).decode()}') for k,v in sorted(d.items())]"
-```
-
-You need these values: `NAMESPACE`, `SOLACE_BROKER_URL`, `SOLACE_BROKER_USERNAME`, `SOLACE_BROKER_PASSWORD`, `SOLACE_BROKER_VPN`, `LLM_SERVICE_GENERAL_MODEL_NAME`, `LLM_SERVICE_ENDPOINT`, and `LLM_SERVICE_API_KEY`.
-
-### Step 3: Prepare Values File
-
-Create a values file with deployer mode enabled. The chart will auto-discover the quickstart's PostgreSQL and object storage secrets:
-
-```yaml
-deploymentMode: deployer
-component: agent
-id: "my-agent"
-
-image:
-  repository: <your-registry>/solace-agent-mesh-enterprise
-  tag: "<your-version>"
-  pullPolicy: Always
-
-global:
-  persistence:
-    namespaceId: "<your-namespace-id>"
-    imageRegistry: "<your-registry>"
-
-solaceBroker:
-  url: "<your-broker-url>"
-  username: "<your-broker-username>"
-  password: "<your-broker-password>"
-  vpn: "<your-broker-vpn>"
-  useTemporaryQueues: false
-
-llmService:
-  generalModelName: "<your-model>"
-  endpoint: "<your-llm-endpoint>"
-  apiKey: "<your-llm-api-key>"
-
-environmentVariables:
-  NAMESPACE: "<your-namespace-id>"
-
-resources:
-  sam:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-```
-
-:::warning
-The `NAMESPACE` environment variable is the SAM logical namespace (e.g., `solace-agentmesh`), not the Kubernetes namespace. It must match what the core and orchestrator use. Verify with: `kubectl exec <core-pod> -c sam-core -- env | grep "^NAMESPACE="`
-:::
-
-### Step 4: Install the Chart
-
-:::warning
-The `--set-file` key must be exactly `config.yaml`. Using `config.agentYaml` will cause the agent to fail with `ValueError: No apps or flows defined in configuration file`.
-:::
-
-```bash
-helm install my-agent solace-agent-mesh/sam-agent \
-  -f my-agent-values.yaml \
-  --set-file config.yaml=./my-agent-config.yaml \
-  -n <same-namespace-as-quickstart>
-```
-
-For a workflow, the command is the same---just change the release name and point `--set-file` to your workflow configuration file:
-
-```bash
-helm install my-workflow solace-agent-mesh/sam-agent \
-  -f my-workflow-values.yaml \
-  --set-file config.yaml=./my-workflow-config.yaml \
-  -n <same-namespace-as-quickstart>
-```
-
-### Step 5: Verify Deployment
-
-Check the pod is running:
-
-```bash
-kubectl get pods -l app.kubernetes.io/instance=my-agent -n <namespace>
-```
-
-Check the agent logs for successful startup:
-
-```bash
-kubectl logs -l app.kubernetes.io/instance=my-agent -c sam -n <namespace>
-```
-
-Look for these success indicators:
-
-```
-Successfully connected to broker at <your-broker-url>
-Scheduling agent card publishing every 10 seconds
-```
-
-Once the agent card is publishing, the agent should appear in the SAM UI within approximately 10 seconds.
-
-## Using Custom Images
-
-You can deploy a custom-built image---for example, one that packages your own Python tools---by overriding the `image.repository` and `image.tag` values. This works with both deployer mode and standalone mode.
-
-```yaml
-image:
-  repository: <your-registry>/custom-echo-agent
-  tag: "1.0.0"
-  pullPolicy: Always
-```
-
-For instructions on building custom agent images, see [Building Custom Agent Images](https://solacelabs.github.io/solace-agent-mesh/documentation/developing/tutorials/building-custom-agent-images).
-
-## Standalone Mode
-
-Standalone mode gives you explicit control over persistence configuration. Use it when you need a separate database, different storage buckets/containers, or when deploying outside a quickstart environment.
-
-### Why Standalone Needs Extra Setup
-
-The chart runs a PostgreSQL init container that creates a dedicated database and user for the agent. This init container needs PostgreSQL admin credentials (`PGHOST`, `PGUSER`, `PGPASSWORD`) to execute `CREATE USER` and `CREATE DATABASE` statements. It also needs `DATABASE_URL` for the main container's connection string. In deployer mode these credentials are auto-discovered from the quickstart's labeled secrets. In standalone mode you must provide them manually.
-
-### Step 1: Prepare Agent or Workflow Configuration File
-
-The configuration file format is the same as in deployer mode. See the deployer mode [Step 1](#step-1-prepare-agent-or-workflow-configuration-file) above for examples.
 
 ### Step 2: Create the Database Secret
 
@@ -430,7 +391,6 @@ kubectl logs -n your-namespace -l app.kubernetes.io/name=sam-agent -c sam --tail
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `deploymentMode` | Deployment mode (`deployer` or `standalone`) | `deployer` |
 | `id` | Unique agent or workflow identifier | `my-custom-agent` |
 | `solaceBroker.url` | Solace broker connection URL | `wss://broker.solace.cloud:443` |
 | `solaceBroker.username` | Broker username | `solace-user` |
@@ -439,12 +399,12 @@ kubectl logs -n your-namespace -l app.kubernetes.io/name=sam-agent -c sam --tail
 | `llmService.generalModelName` | LLM model name | `gpt-4o` |
 | `llmService.endpoint` | LLM API endpoint | `https://api.openai.com/v1` |
 | `llmService.apiKey` | LLM API key | `sk-...` |
-| `persistence.database.url` | Database connection URL (standalone only) | `postgresql+psycopg2://...` |
-| `persistence.s3.endpointUrl` | S3 endpoint (standalone, S3 only) | `https://s3.amazonaws.com` |
-| `persistence.s3.bucketName` | S3 bucket name (standalone, S3 only) | `my-bucket` |
-| `persistence.azure.accountName` | Azure storage account (standalone, Azure only) | `mystorageaccount` |
-| `persistence.azure.containerName` | Azure container name (standalone, Azure only) | `my-artifacts` |
-| `persistence.gcs.bucketName` | GCS bucket name (standalone, GCS only) | `my-artifacts` |
+| `persistence.database.url` | Database connection URL (only when `persistence.createSecrets: true`) | `postgresql+psycopg2://...` |
+| `persistence.s3.endpointUrl` | S3 endpoint (only when `persistence.createSecrets: true`, S3 variant) | `https://s3.amazonaws.com` |
+| `persistence.s3.bucketName` | S3 bucket name (only when `persistence.createSecrets: true`, S3 variant) | `my-bucket` |
+| `persistence.azure.accountName` | Azure storage account (only when `persistence.createSecrets: true`, Azure variant) | `mystorageaccount` |
+| `persistence.azure.containerName` | Azure container name (only when `persistence.createSecrets: true`, Azure variant) | `my-artifacts` |
+| `persistence.gcs.bucketName` | GCS bucket name (only when `persistence.createSecrets: true`, GCS variant) | `my-artifacts` |
 | `config.yaml` | Agent configuration (via --set-file) | (file path) |
 
 ### Database Requirements
@@ -470,17 +430,6 @@ The agent requires object storage for file handling. Supported providers:
 - **GCS**: Google Cloud Storage (with service account JSON or workload identity)
 
 The storage type is auto-detected from which secrets or configuration values are provided. See the [Persistence Configuration](persistence) documentation for detailed setup instructions per provider.
-
-## Comparison: Deployer vs Standalone Mode
-
-| Aspect | Agent Deployer (UI/API) | Deployer Mode | Standalone Mode |
-|--------|------------------------|---------------|-----------------|
-| **Deployment** | Via SAM UI/API | Via `helm install` command | Via `helm install` command |
-| **Persistence Discovery** | Auto-discovers secrets | Auto-discovers secrets via K8s labels | Explicit configuration required |
-| **Agent Config** | Provided by deployer | Must provide via `--set-file` | Must provide via `--set-file` |
-| **Custom Images** | Not supported | Supported | Supported |
-| **Use Case** | Dynamic agent management | Static agents alongside quickstart | Isolated/GitOps workflows |
-| **Lifecycle** | Managed by SAM platform | Managed by Helm/K8s | Managed by Helm/K8s |
 
 ## Upgrading Agents or Workflows
 
@@ -539,13 +488,16 @@ Both values must be identical.
 
 ### Init Container Stuck on `Waiting for postgres...`
 
-In deployer mode, the chart auto-discovers the quickstart's PostgreSQL admin secret via Kubernetes labels. If the labels are missing or the secret does not exist in the same namespace, the init container will wait indefinitely. Verify the secret exists:
+The init container needs admin credentials (`PGHOST`, `PGUSER`, `PGPASSWORD`) to create a per-agent database, plus `DATABASE_URL` for the main container.
+
+- **When deploying alongside a SAM Quickstart**: confirm the secret named in `persistence.existingSecrets.database` exists in the same namespace. The Quickstart's `<release>-postgresql` secret already contains all four required keys.
+- **When deploying with your own infrastructure**: confirm your database secret contains the admin credentials (`PGHOST`, `PGUSER`, `PGPASSWORD`) alongside `DATABASE_URL`. See [Create the Database Secret](#step-2-create-the-database-secret) for the full secret format.
+
+To check what secret keys are present:
 
 ```bash
-kubectl get secrets -n <namespace> -l app.kubernetes.io/component=postgresql
+kubectl get secret <secret-name> -n <namespace> -o jsonpath='{.data}' | jq 'keys'
 ```
-
-In standalone mode, ensure your database secret contains the required admin credentials (`PGHOST`, `PGUSER`, `PGPASSWORD`) alongside `DATABASE_URL`. The init container needs admin credentials to run `CREATE USER` and `CREATE DATABASE`. See [Create the Database Secret](#step-2-create-the-database-secret) for the full secret format.
 
 ### Agent Pod Not Starting
 

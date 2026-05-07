@@ -1,0 +1,44 @@
+{{/*
+Adapter helpers for the SAM service.
+*/}}
+
+{{/*
+Build the service ports list with conditional nodePorts.
+*/}}
+{{- define "sam.service.ports" -}}
+- port: 443
+  targetPort: 8443
+  protocol: TCP
+  name: webui-tls
+  {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.https }}
+  nodePort: {{ .Values.service.nodePorts.https }}
+  {{- end }}
+- port: 4443
+  targetPort: 4443
+  protocol: TCP
+  name: platform-tls
+  {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.platformHttps }}
+  nodePort: {{ .Values.service.nodePorts.platformHttps }}
+  {{- end }}
+- port: 80
+  targetPort: 8000
+  protocol: TCP
+  name: webui
+  {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.http }}
+  nodePort: {{ .Values.service.nodePorts.http }}
+  {{- end }}
+- port: 8080
+  targetPort: 8001
+  protocol: TCP
+  name: platform
+  {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.platformHttp }}
+  nodePort: {{ .Values.service.nodePorts.platformHttp }}
+  {{- end }}
+- port: 5050
+  targetPort: 5050
+  protocol: TCP
+  name: auth
+  {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.auth }}
+  nodePort: {{ .Values.service.nodePorts.auth }}
+  {{- end }}
+{{- end -}}

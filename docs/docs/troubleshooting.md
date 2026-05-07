@@ -41,6 +41,38 @@ kubectl get secrets -l app.kubernetes.io/instance=agent-mesh
 kubectl get service -l app.kubernetes.io/instance=agent-mesh
 ```
 
+## Pre-install Checks (sam-doctor)
+
+When `samDoctor.enabled=true`, SAM runs a hook Job before any workload pods are created. By default, a failing check blocks `helm install` and `helm upgrade`. To see the diagnostic report:
+
+```bash
+# Find the hook job (name includes your Helm release name):
+kubectl get jobs -n <namespace> | grep sam-doctor
+
+# View the diagnostic report using the actual job name:
+kubectl logs job/<job-name> -n <namespace>
+```
+
+The report lists each check with a `PASS`, `FAIL`, `WARN`, or `SKIP` status and a reason for any failure.
+
+### Bypassing the check
+
+To demote failures to warnings and always proceed:
+
+```yaml
+samDoctor:
+  failOnError: false
+```
+
+To skip the hook entirely (the default — enable only with an enterprise image that includes `sam_doctor`):
+
+```yaml
+samDoctor:
+  enabled: false
+```
+
+---
+
 ## Common Issues
 
 ### Pod fails to start
@@ -232,29 +264,31 @@ helm upgrade <release-name> solace-agent-mesh/solace-agent-mesh \
 2. Verify you're using the correct ports:
    ```bash
    # Correct - uses pre-configured CORS ports
-   kubectl port-forward svc/<release-name> 8000:80 8001:8001
+   kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080
    ```
 
 **Common Causes and Solutions:**
 
 | Cause | Solution |
 |-------|----------|
-| Using `minikube service` (random ports) | Use `local-k8s-values.yaml` sample, or switch to port 8000 |
-| Using non-standard port (e.g., 9000:80) | Use `local-k8s-values.yaml` sample, or switch to port 8000 |
-| Missing Platform Service port-forward | Add `8001:8001` to your port-forward command |
+| Using `minikube service` (random ports) | Use port-forward with ports 8000/8080, or update `sam.frontendServerUrl`/`sam.platformServiceUrl` to match |
+| Using non-standard port (e.g., 9000:80) | Use ports 8000/8080, or update `sam.frontendServerUrl`/`sam.platformServiceUrl` to match |
+| Missing Platform Service port-forward | Add `8080:8080` to your port-forward command |
 
-**Solution A: Use the local development sample file (Recommended)**
+**Solution A: Use default values (Recommended)**
 
-The `local-k8s-values.yaml` sample includes CORS configuration that allows any localhost port:
+The chart defaults include localhost-friendly CORS configuration with `sam.frontendServerUrl` and `sam.platformServiceUrl` set to ports `8000` and `8080`. Install with no overrides:
 ```bash
-helm install agent-mesh solace-agent-mesh/solace-agent-mesh -f local-k8s-values.yaml
+helm install sam solace-agent-mesh/solace-agent-mesh
 ```
+
+If you port-forward on different ports, update `sam.frontendServerUrl` and `sam.platformServiceUrl` to match.
 
 **Solution B: Use specific ports**
 
-If not using the sample file, use port 8000 (pre-configured in CORS):
+Use ports 8000 and 8080 (pre-configured in the chart defaults):
 ```bash
-kubectl port-forward -n <namespace> svc/<release-name> 8000:80 8001:8001
+kubectl port-forward -n <namespace> svc/<release-name>-solace-agent-mesh-core 8000:80 8080:8080
 ```
 
 **Pre-configured CORS origins (without the sample file):**

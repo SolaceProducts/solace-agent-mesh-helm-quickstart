@@ -157,7 +157,7 @@ persistence-layer:
 
 1. **PVCs persist after uninstall**: When you run `helm uninstall`, the PersistentVolumeClaims (PVCs) are not automatically deleted. This is by design to prevent accidental data loss. To fully clean up:
    ```bash
-   kubectl delete pvc -l app.kubernetes.io/namespace-id=<your-namespace-id>
+   kubectl delete pvc -l app.kubernetes.io/instance=<release-name>
    ```
 
 2. **Single instance only**: The bundled persistence deploys single-instance databases with no high availability or automatic failover.

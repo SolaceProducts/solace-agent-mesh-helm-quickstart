@@ -1,0 +1,9 @@
+apiVersion: v2
+name: sam-common
+description: Shared library chart for Solace Agent Mesh Helm charts
+type: library
+version: 1.1.0
+maintainers:
+  - name: Solace
+    email: info@solace.com
+home: https://solace.com/products/agent-mesh/
