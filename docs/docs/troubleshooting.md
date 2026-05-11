@@ -43,37 +43,28 @@ kubectl get service -l app.kubernetes.io/instance=agent-mesh
 
 ## Pre-install Checks (sam-doctor)
 
-SAM runs a set of pre-flight validation checks (collectively called **sam-doctor**) before any workload pods are created. These checks catch environment misconfigurations up front. The checks only execute when using an enterprise image that includes `sam_doctor`; with community images the hook logs a warning and exits successfully without blocking the install. By default sam-doctor is enabled (`samDoctor.enabled: true`) and a failing check blocks `helm install` and `helm upgrade` with an error like:
-
-```
-Error: INSTALLATION FAILED: failed pre-install: 1 error occurred:
-    * job <release>-<chart-name>-sam-doctor failed: ...
-```
-
-To see the diagnostic report, view the job's logs (the job name appears in the helm error above):
+When `samDoctor.enabled=true`, SAM runs a hook Job before any workload pods are created. By default, a failing check blocks `helm install` and `helm upgrade`. To see the diagnostic report:
 
 ```bash
-kubectl logs job/<release>-<chart-name>-sam-doctor -n <namespace>
+# Find the hook job (name includes your Helm release name):
+kubectl get jobs -n <namespace> | grep sam-doctor
+
+# View the diagnostic report using the actual job name:
+kubectl logs job/<job-name> -n <namespace>
 ```
 
-For example, for the `solace-agent-mesh` chart with `helm install sam --namespace sam`:
-
-```bash
-kubectl logs job/sam-solace-agent-mesh-sam-doctor -n sam
-```
-
-The report lists each check with a `PASS`, `WARN`, `FAIL`, or `SKIP` status and a reason for any failure.
+The report lists each check with a `PASS`, `FAIL`, `WARN`, or `SKIP` status and a reason for any failure.
 
 ### Bypassing the check
 
-To demote failures to warnings and always proceed, set the following in your Helm values:
+To demote failures to warnings and always proceed:
 
 ```yaml
 samDoctor:
   failOnError: false
 ```
 
-To skip the hook entirely, set the following in your Helm values:
+To skip the hook entirely (the default — enable only with an enterprise image that includes `sam_doctor`):
 
 ```yaml
 samDoctor:
