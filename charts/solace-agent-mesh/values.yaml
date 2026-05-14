@@ -346,6 +346,7 @@ dataStores:
     endpointUrl: ""               # Leave empty for AWS S3; set for MinIO or other S3-compatible stores
     bucketName: ""                # S3 bucket for artifact storage
     connectorSpecBucketName: ""   # S3 bucket for connector specs (can be same as bucketName)
+    evalDataBucketName: ""        # Optional S3 bucket for eval execution data & artifact snapshots. Defaults to bucketName when empty.
     accessKey: ""
     secretKey: ""
     region: "us-east-1"           # AWS S3 only (e.g. us-east-1, eu-west-1)
@@ -355,8 +356,9 @@ dataStores:
     accountName: ""
     accountKey: ""
     connectionString: ""
-    containerName: ""              # Blob container for artifact storage
-    connectorSpecContainerName: "" # Blob container for connector specs (can be same as containerName)
+    containerName: ""               # Blob container for artifact storage
+    connectorSpecContainerName: ""  # Blob container for connector specs (can be same as containerName)
+    evalDataContainerName: ""       # Optional Blob container for eval execution data & artifact snapshots. Defaults to containerName when empty.
 
   # Google Cloud Storage (configure if objectStorage.type: "gcs")
   gcs:
@@ -364,6 +366,7 @@ dataStores:
     credentialsJson: ""
     bucketName: ""                # GCS bucket for artifact storage
     connectorSpecBucketName: ""   # GCS bucket for connector specs (can be same as bucketName)
+    evalDataBucketName: ""        # Optional GCS bucket for eval execution data & artifact snapshots. Defaults to bucketName when empty.
 
 # =============================================================================
 # DEPLOYMENT
@@ -390,7 +393,7 @@ samDeployment:
   image:
     registry: ""                              # Overrides global.imageRegistry for this image only
     repository: solace-agent-mesh-enterprise
-    tag: "1.500.0"
+    tag: "1.514.0"
     digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
     pullPolicy: IfNotPresent
 
@@ -402,8 +405,8 @@ samDeployment:
       tag: "1.8.2"
       digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
       pullPolicy: IfNotPresent
-    version: "k8s-1.500.0"
-    chartVersion: "1.500.0"
+    version: "k8s-1.501.0"
+    chartVersion: "1.501.0"
 
     # In-cluster API host for the deployer's helm client. Only applied when
     # HTTP_PROXY/HTTPS_PROXY is set, so the .svc NO_PROXY rule bypasses the proxy.

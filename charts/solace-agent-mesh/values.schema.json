@@ -425,6 +425,7 @@
             "endpointUrl":            { "type": "string", "description": "S3-compatible endpoint URL" },
             "bucketName":             { "type": "string", "description": "S3 bucket for data storage" },
             "connectorSpecBucketName": { "type": "string", "description": "S3 bucket for connector specs" },
+            "evalDataBucketName":     { "type": "string", "description": "Optional S3 bucket for eval execution data; defaults to bucketName when empty" },
             "accessKey":              { "type": "string", "description": "S3 access key" },
             "secretKey":              { "type": "string", "description": "S3 secret key" },
             "region":                 { "type": "string", "description": "S3 region (e.g. us-east-1)" }
@@ -438,7 +439,8 @@
             "accountKey":                 { "type": "string", "description": "Azure storage account key" },
             "connectionString":           { "type": "string", "description": "Azure storage connection string" },
             "containerName":              { "type": "string", "description": "Azure blob container for data storage" },
-            "connectorSpecContainerName": { "type": "string", "description": "Azure blob container for connector specs" }
+            "connectorSpecContainerName": { "type": "string", "description": "Azure blob container for connector specs" },
+            "evalDataContainerName":      { "type": "string", "description": "Optional Azure blob container for eval execution data; defaults to containerName when empty" }
           },
           "additionalProperties": false
         },
@@ -448,7 +450,8 @@
             "project":                 { "type": "string", "description": "GCP project ID" },
             "credentialsJson":         { "type": "string", "description": "GCP service account credentials JSON" },
             "bucketName":              { "type": "string", "description": "GCS bucket for data storage" },
-            "connectorSpecBucketName": { "type": "string", "description": "GCS bucket for connector specs" }
+            "connectorSpecBucketName": { "type": "string", "description": "GCS bucket for connector specs" },
+            "evalDataBucketName":      { "type": "string", "description": "Optional GCS bucket for eval execution data; defaults to bucketName when empty" }
           },
           "additionalProperties": false
         }

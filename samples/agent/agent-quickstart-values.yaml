@@ -48,7 +48,7 @@ global:
 
 image:
   repository: solace-agent-mesh-enterprise
-  tag: "1.500.0"                       # bump to match your SAM control plane version
+  tag: "1.514.0"                       # bump to match your SAM control plane version
   pullPolicy: IfNotPresent
 
 # -----------------------------------------------------------------------------

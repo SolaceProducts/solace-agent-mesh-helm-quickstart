@@ -74,6 +74,7 @@ AZURE_STORAGE_CONNECTION_STRING: {{ .Values.dataStores.azure.connectionString | 
 {{- end }}
 AZURE_STORAGE_CONTAINER_NAME: {{ include "sam.azure.containerName" . | b64enc }}
 CONNECTOR_SPEC_BUCKET_NAME: {{ include "sam.azure.connectorSpecContainerName" . | b64enc }}
+EVAL_DATA_BUCKET_NAME: {{ include "sam.azure.evalDataContainerName" . | b64enc }}
 {{- else if eq (include "sam.objectStorage.type" .) "gcs" }}
 GCS_PROJECT: {{ .Values.dataStores.gcs.project | b64enc }}
 {{- if not .Values.dataStores.objectStorage.workloadIdentity.enabled }}
@@ -81,10 +82,12 @@ GCS_CREDENTIALS_JSON: {{ .Values.dataStores.gcs.credentialsJson | b64enc }}
 {{- end }}
 GCS_BUCKET_NAME: {{ include "sam.gcs.bucketName" . | b64enc }}
 CONNECTOR_SPEC_BUCKET_NAME: {{ include "sam.gcs.connectorSpecBucketName" . | b64enc }}
+EVAL_DATA_BUCKET_NAME: {{ include "sam.gcs.evalDataBucketName" . | b64enc }}
 {{- else }}
 S3_ENDPOINT_URL: {{ include "sam.s3.endpointUrl" . | b64enc }}
 S3_BUCKET_NAME: {{ include "sam.s3.bucketName" . | b64enc }}
 CONNECTOR_SPEC_BUCKET_NAME: {{ include "sam.s3.connectorSpecBucketName" . | b64enc }}
+EVAL_DATA_BUCKET_NAME: {{ include "sam.s3.evalDataBucketName" . | b64enc }}
 {{- if not .Values.dataStores.objectStorage.workloadIdentity.enabled }}
 AWS_ACCESS_KEY_ID: {{ include "sam.s3.accessKey" . | b64enc }}
 AWS_SECRET_ACCESS_KEY: {{ include "sam.s3.secretKey" . | b64enc }}

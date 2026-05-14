@@ -144,6 +144,16 @@ Args: (dict "root" . "image" <imageSpec>)
 {{- end }}
 {{- end }}
 
+{{- define "sam.s3.evalDataBucketName" -}}
+{{- if .Values.global.persistence.enabled }}
+{{- include "sam.s3.bucketName" . }}
+{{- else if .Values.dataStores.s3.evalDataBucketName -}}
+{{- printf "%s" .Values.dataStores.s3.evalDataBucketName }}
+{{- else -}}
+{{- include "sam.s3.bucketName" . }}
+{{- end }}
+{{- end }}
+
 {{/* ---- Azure helpers ---- */}}
 
 {{- define "sam.azure.containerName" -}}
@@ -154,6 +164,14 @@ Args: (dict "root" . "image" <imageSpec>)
 {{- .Values.dataStores.azure.connectorSpecContainerName }}
 {{- end -}}
 
+{{- define "sam.azure.evalDataContainerName" -}}
+{{- if .Values.dataStores.azure.evalDataContainerName -}}
+{{- .Values.dataStores.azure.evalDataContainerName }}
+{{- else -}}
+{{- include "sam.azure.containerName" . }}
+{{- end }}
+{{- end -}}
+
 {{/* ---- GCS helpers ---- */}}
 
 {{- define "sam.gcs.bucketName" -}}
@@ -162,6 +180,14 @@ Args: (dict "root" . "image" <imageSpec>)
 
 {{- define "sam.gcs.connectorSpecBucketName" -}}
 {{- .Values.dataStores.gcs.connectorSpecBucketName }}
+{{- end -}}
+
+{{- define "sam.gcs.evalDataBucketName" -}}
+{{- if .Values.dataStores.gcs.evalDataBucketName -}}
+{{- .Values.dataStores.gcs.evalDataBucketName }}
+{{- else -}}
+{{- include "sam.gcs.bucketName" . }}
+{{- end }}
 {{- end -}}
 
 {{/* ---- Database helpers ---- */}}

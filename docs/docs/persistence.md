@@ -13,7 +13,7 @@ SAM uses two types of persistent storage:
 
 - **PostgreSQL Database**: Stores session metadata, user data, and application state
 - **Object Storage (S3, Azure Blob, or GCS)**: Stores artifacts, files, and other binary data in two separate locations:
-  - **Artifacts bucket/container**: Stores workflow artifacts and temporary files (fully private)
+  - **Artifacts bucket/container**: Stores workflow artifacts and temporary files (fully private). Also holds offline-eval execution data and artifact snapshots by default, unless a dedicated eval bucket is configured.
   - **Connector specs bucket/container**: Stores OpenAPI connector specification files (public read access, authenticated write only)
 
 ### Object Storage Type
@@ -64,6 +64,11 @@ The bundled SeaweedFS is automatically configured with both required buckets and
 - Authenticated write access (SAM service only)
 - Anonymous/public read access (required for agents to download OpenAPI specifications)
 - Stores critical infrastructure files needed for agent startup
+
+**Eval Data** (shares the artifacts bucket by default):
+- Offline-eval execution data and artifact snapshots are written under `{namespace}/eval/runs/...` keys inside the artifacts bucket.
+- No additional configuration is required for Quickstart installs.
+- To isolate eval data into a dedicated bucket (e.g. for IAM or lifecycle separation) when using **external** object storage, set `dataStores.s3.evalDataBucketName` (or the `dataStores.azure.evalDataContainerName` / `dataStores.gcs.evalDataBucketName` equivalent). When empty, the chart falls back to the artifacts bucket name. (Bundled-persistence installs always use the artifacts bucket — the override is ignored because the bundled SeaweedFS init only creates the artifacts and connector-specs buckets.)
 
 ### Basic Configuration
 
