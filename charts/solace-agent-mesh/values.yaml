@@ -393,7 +393,7 @@ samDeployment:
   image:
     registry: ""                              # Overrides global.imageRegistry for this image only
     repository: solace-agent-mesh-enterprise
-    tag: "1.514.0"
+    tag: "1.543.0"
     digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
     pullPolicy: IfNotPresent
 
@@ -405,7 +405,7 @@ samDeployment:
       tag: "1.8.2"
       digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
       pullPolicy: IfNotPresent
-    version: "k8s-1.501.0"
+    version: "k8s-1.501.6"
     chartVersion: "1.501.0"
 
     # In-cluster API host for the deployer's helm client. Only applied when
@@ -556,6 +556,8 @@ persistence-layer:
 # For production: set global.broker.embedded to false and use an external Solace broker in the BROKER section above
 embeddedBroker:
   imagePullSecrets: []
+  nodeSelector: {}
+  tolerations: []
   image:
     registry: ""
     repository: solace-pubsub-enterprise

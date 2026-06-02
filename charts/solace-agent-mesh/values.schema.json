@@ -470,7 +470,9 @@
         },
         "resources":        { "type": "object", "description": "Kubernetes resource requests and limits. Minimum memory: 2480Mi." },
         "storageClassName": { "type": "string", "description": "Storage class name for broker PVC. Uses cluster default if not specified." },
-        "shmSize":          { "type": "string", "description": "Shared memory size limit for /dev/shm (minimum: 1Gi)" }
+        "shmSize":          { "type": "string", "description": "Shared memory size limit for /dev/shm (minimum: 1Gi)" },
+        "nodeSelector":     { "type": "object", "description": "Node selector for broker pod scheduling" },
+        "tolerations":      { "type": "array", "description": "Tolerations for broker pod scheduling", "items": { "type": "object" } }
       },
       "additionalProperties": false
     },
