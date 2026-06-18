@@ -64,10 +64,69 @@ Used by: configmap-core-env.yaml, secret-auth.yaml
   {{- $authCallbackUrl = printf "%s/api/v1/auth/callback" $frontendServerUrl }}
   {{- $authServiceUrl = printf "%s://%s:%s" $externalScheme $externalHost $authPort }}
 {{- end }}
+{{- /* Go-mode URL fixups (apply unconditionally — both ingress and no-ingress branches above respected operator overrides):
+
+      1. frontendServerUrl: values.yaml ships "http://localhost:8000" as the
+         Python-mode local-cluster default (matches Python's container port 8000).
+         Go's GWE serves the UI on container port 8080. When the operator has
+         left the values.yaml default in place (i.e. local-cluster smoke test
+         on kind), swap to localhost:8080 so port-forward 8080:80 produces
+         a frontend bootstrap URL the browser can actually reach. Any
+         operator-supplied value (DNS name, ingress host, real URL) is
+         left untouched.
+
+      2. platformServiceUrl, authServiceUrl: in Go mode both the platform
+         service and the auth service are in-process with GWE — they must
+         equal the frontend URL unconditionally. The Python-mode no-ingress
+         branch above computes platformServiceUrl on port 8080/4443 and
+         authServiceUrl on port 5050; neither port is exposed by
+         service_gwe.yaml (8080/8443 webui + 9090 health only), so leaving
+         them unmapped breaks platform UI calls and the OIDC auth flow when
+         sam.dnsName is set. Override both to match frontendServerUrl —
+         parallels the ingress branch, which already does this for Python. */ -}}
+{{- if eq (.Values.sam.platform | default "python") "go" }}
+  {{- if eq $frontendServerUrl "http://localhost:8000" }}
+    {{- $frontendServerUrl = "http://localhost:8080" }}
+    {{- $externalBaseUrl = $frontendServerUrl }}
+    {{- $authCallbackUrl = printf "%s/api/v1/auth/callback" $frontendServerUrl }}
+  {{- end }}
+  {{- $platformServiceUrl = $frontendServerUrl }}
+  {{- $authServiceUrl = $frontendServerUrl }}
+{{- end }}
+{{- /* FE-only API base URL overrides. Default to the shared frontendServerUrl /
+       platformServiceUrl so the value the FE sees via /api/v1/config is
+       identical to today's behavior. Operators opt into a different value
+       (e.g., "" for same-origin) by setting sam.fe.apiBaseUrl /
+       sam.fe.platformBaseUrl. Only affects the FE config response — env vars
+       consumed by OAuth callback construction, MCP gateway issuer, and
+       connector service URL are unchanged.
+
+       The same `hasKey` gates are repeated in configmap-webui.yaml (lines 56,
+       120) — the consumer chooses between $urls.feApiBaseUrl and the legacy
+       ${FRONTEND_SERVER_URL, ""} substitution based on whether the operator
+       opted in. Keep both sides of the gate in sync. */ -}}
+{{- $feApiBaseUrl := $frontendServerUrl }}
+{{- if and .Values.sam.fe (hasKey .Values.sam.fe "apiBaseUrl") }}
+  {{- $feApiBaseUrl = .Values.sam.fe.apiBaseUrl }}
+{{- end }}
+{{- $fePlatformBaseUrl := $platformServiceUrl }}
+{{- if and .Values.sam.fe (hasKey .Values.sam.fe "platformBaseUrl") }}
+  {{- $fePlatformBaseUrl = .Values.sam.fe.platformBaseUrl }}
+{{- end }}
+{{- /* toolCallbackUrl: where a tool's OAuth provider (e.g. Atlassian Rovo MCP)
+       redirects after interactive consent. Consumed by the agent runtime in
+       Go mode (cmd/awe → internal/auth/toolauth/oauth2.go) and emitted into
+       the auth-secrets Secret as OAUTH_TOOL_REDIRECT_URI. Always derives from
+       the post-fixup frontendServerUrl so it tracks ingress / dnsName / Go's
+       localhost:8080 fixup uniformly. */ -}}
+{{- $toolCallbackUrl := printf "%s/api/v1/auth/tool/callback" $frontendServerUrl }}
 frontendServerUrl: {{ $frontendServerUrl }}
 platformServiceUrl: {{ $platformServiceUrl }}
+feApiBaseUrl: {{ $feApiBaseUrl | quote }}
+fePlatformBaseUrl: {{ $fePlatformBaseUrl | quote }}
 externalBaseUrl: {{ $externalBaseUrl }}
 authCallbackUrl: {{ $authCallbackUrl }}
+toolCallbackUrl: {{ $toolCallbackUrl }}
 authServiceUrl: {{ $authServiceUrl }}
 externalHost: {{ $externalHost }}
 {{- end -}}

@@ -1,4 +1,4 @@
-{{- if not .Values.sam.communityMode }}
+{{- if and (ne (.Values.sam.platform | default "python") "go") (not .Values.sam.communityMode) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

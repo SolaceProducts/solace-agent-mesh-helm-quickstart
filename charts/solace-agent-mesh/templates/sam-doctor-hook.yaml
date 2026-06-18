@@ -1,5 +1,8 @@
 {{- if .Values.samDoctor.enabled }}
 {{- $noFailFlag := ternary "" "--no-fail-on-error" .Values.samDoctor.failOnError }}
+{{- $isGo := eq (.Values.sam.platform | default "python") "go" }}
+{{- /* In Go mode, the doctor binary (sam-doctor) ships in the GWE image. */ -}}
+{{- $doctorImage := ternary .Values.samDeployment.gwe.image .Values.samDeployment.image $isGo }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -55,14 +58,15 @@ spec:
         {{- include "sam.cacert.trustVolume" . | nindent 8 }}
         {{- end }}
       {{- if .Values.samDeployment.customCA.enabled }}
-      {{- $caInitImg := ternary .Values.samDeployment.caInitImage .Values.samDeployment.image (not (empty .Values.samDeployment.caInitImage.repository)) }}
+      {{- $caInitImg := ternary .Values.samDeployment.caInitImage $doctorImage (not (empty .Values.samDeployment.caInitImage.repository)) }}
       initContainers:
         {{- include "sam.cacert.initContainerSpec" (dict "root" . "config" (dict "caInitImage" $caInitImg "customCA" .Values.samDeployment.customCA)) | nindent 8 }}
       {{- end }}
       containers:
         - name: sam-doctor
-          image: {{ include "sam.images.image" (dict "root" . "image" .Values.samDeployment.image) | quote }}
-          imagePullPolicy: {{ .Values.samDeployment.image.pullPolicy }}
+          image: {{ include "sam.images.image" (dict "root" . "image" $doctorImage) | quote }}
+          imagePullPolicy: {{ $doctorImage.pullPolicy | default "IfNotPresent" }}
+          terminationMessagePolicy: FallbackToLogsOnError
           securityContext:
             {{- include "sam.security.containerContext" (dict "override" .Values.samDeployment.securityContext) | nindent 12 }}
           volumeMounts:
@@ -73,6 +77,12 @@ spec:
             {{- include "sam.cacert.trustVolumeMount" . | nindent 12 }}
             {{- end }}
           command:
+            {{- if $isGo }}
+            - sam-doctor
+            {{- if not .Values.samDoctor.failOnError }}
+            - --no-fail-on-error
+            {{- end }}
+            {{- else }}
             - sh
             - -c
             - |
@@ -88,6 +98,7 @@ spec:
                 export GOOGLE_APPLICATION_CREDENTIALS="$_gcs_creds_file"
               fi
               python -m sam_doctor {{ $noFailFlag }}
+            {{- end }}
           resources:
             requests:
               cpu: 50m

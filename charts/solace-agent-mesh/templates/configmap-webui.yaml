@@ -1,3 +1,4 @@
+{{- $urls := include "sam.urls.compute" . | fromYaml }}
 {{ include "sam.config.metadata" (dict "root" . "name" "webui-config") }}
 data:
   webui_backend.yaml: |
@@ -52,7 +53,7 @@ data:
                 Responses should be clear, concise, and professionally toned.
                 Format responses to the user in Markdown using appropriate formatting.
 
-          frontend_server_url: ${FRONTEND_SERVER_URL, ""}
+          frontend_server_url: {{ if and .Values.sam.fe (hasKey .Values.sam.fe "apiBaseUrl") }}{{ $urls.feApiBaseUrl | quote }}{{ else }}${FRONTEND_SERVER_URL, ""}{{ end }}
           frontend_welcome_message: ${FRONTEND_WELCOME_MESSAGE, "How can I assist you today?"}
           frontend_bot_name: ${FRONTEND_BOT_NAME, "Solace Agent Mesh"}
           frontend_collect_feedback: ${FRONTEND_COLLECT_FEEDBACK, false}
@@ -116,4 +117,4 @@ data:
             jwt_max_ttl_seconds: 86400
 
           platform_service:
-            url: ${PLATFORM_SERVICE_URL, ""}
+            url: {{ if and .Values.sam.fe (hasKey .Values.sam.fe "platformBaseUrl") }}{{ $urls.fePlatformBaseUrl | quote }}{{ else }}${PLATFORM_SERVICE_URL, ""}{{ end }}

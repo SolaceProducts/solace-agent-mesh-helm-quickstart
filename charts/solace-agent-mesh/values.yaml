@@ -50,6 +50,31 @@ global:
   # Note: Mutually exclusive with global.imagePullSecrets.
   imagePullKey: ""
 
+  # Named pod runtime profiles for sandbox isolation (gVisor, Kata, Firecracker, etc.).
+  # Each profile bundles the three fields that always travel together: a RuntimeClass
+  # to use, the node selector to land on nodes that support it, and tolerations for
+  # any taints those nodes carry. Reference a profile from a workload via
+  # samDeployment.{component}.podRuntime: <profile-name>.
+  #
+  # No defaults are shipped — operators must define profiles that match their cluster's
+  # actual node labels, taints, and installed RuntimeClass names. Each profile must set
+  # runtimeClassName; nodeSelector and tolerations are optional. Referencing an unknown
+  # profile, or one with an empty runtimeClassName, fails the render (no silent fallback
+  # to the default runtime).
+  #
+  # Example:
+  #   podRuntimes:
+  #     gvisor:
+  #       runtimeClassName: gvisor
+  #       nodeSelector:
+  #         runtime: gvisor
+  #       tolerations:
+  #         - key: sandbox
+  #           operator: Equal
+  #           value: gvisor
+  #           effect: NoSchedule
+  podRuntimes: {}
+
 # =============================================================================
 # VALIDATIONS
 # =============================================================================
@@ -67,6 +92,11 @@ validations:
 # CORE SAM CONFIGURATION
 # =============================================================================
 sam:
+  # Platform implementation
+  # Default: python — renders the Python core deployment (coexistence steady state)
+  # Set to "go" to render the Go pod set (GWE/AWE/STR) instead of the Python core deployment
+  platform: python
+
   # Disable SAM enterprise features (Internal)
   # Default: false (enterprise features enabled)
   communityMode: false
@@ -108,6 +138,40 @@ sam:
   # derives the host from ingress.host in that case).
   dnsName: "" # e.g., sam.example.com or sam.local:8080
 
+  # ---------------------------------------------------------------------------
+  # Frontend API base URL override (optional)
+  # ---------------------------------------------------------------------------
+  # By default, the FE consumes sam.dnsName-derived URLs as its API base via
+  # /api/v1/config. Override here for off-origin scenarios where the FE is
+  # served from a different origin than its configured hostname — e.g.,
+  # kubectl port-forward, kubectl proxy, microfrontend embedding, multi-Ingress.
+  #
+  # Values:
+  #   ""               — FE calls APIs against window.location.origin (same-
+  #                      origin). Use for port-forward, kubectl proxy, or any
+  #                      access path where the FE and API live on the same
+  #                      origin regardless of dnsName. Same-origin requests
+  #                      skip CORS preflight entirely, so no extra CORS
+  #                      configuration is needed.
+  #   "https://..."    — FE calls APIs at the given absolute URL. Use for
+  #                      multi-Ingress / microfrontend embedding scenarios.
+  #                      CAVEAT: if the FE is served from a different origin
+  #                      than this gateway, you MUST also extend
+  #                      sam.cors.allowedOriginRegex so the FE's origin is
+  #                      accepted by this gateway's CORS preflight.
+  #   omitted          — Default. Chart derives the URL from sam.dnsName,
+  #                      preserving existing behavior for all current
+  #                      operators.
+  #
+  # This override affects ONLY the FE's API base URL via /api/v1/config.
+  # OAuth callback URLs, MCP gateway issuer, and connector service URL
+  # continue to derive from sam.dnsName so OAuth and MCP keep working
+  # regardless of this knob.
+  #
+  # fe:
+  #   apiBaseUrl: ""        # uncomment for same-origin (port-forward, embed)
+  #   platformBaseUrl: ""
+
   # Secure user sessions with session secret key
   # Default: empty (Note: auto-generates on first install, stable across upgrades)
   # For production: set explicitly for reproducibility (recommended)
@@ -116,6 +180,10 @@ sam:
   # Configure OIDC provider
   # Set when authorization.enabled is true
   oauthProvider:
+    # Name of the entry in the baked oidc_providers.yaml catalog to use.
+    # Leave empty to fall back to the binary's default (`azure`); override only
+    # when running with a custom catalog (e.g. `enterprise`).
+    providerName: ""
     oidc:
       issuer: ""       # e.g., https://login.microsoftonline.com/YOUR-TENANT-ID/v2.0
       clientId: ""     # e.g., your-client-id
@@ -125,6 +193,14 @@ sam:
   # Default: no custom roles, static user assignments for admin and standard user, no IDP claim mappings
   # For production: configure customRoles, static user assignments and/or dynamic IDP claim mapping as needed
   authenticationRbac:
+    # Suppress the built-in sam_admin/sam_user role definitions from the
+    # rendered role-to-scope-definitions.yaml. Required when migrating role
+    # definitions to DB-managed RBAC via `sam config apply` — the platform's
+    # disjoint YAML/DB invariant rejects DB role names that collide with
+    # YAML-defined roles. Operators opting in must supply replacements via
+    # customRoles or via DB-side rbacRole entries.
+    disableBuiltinRoles: false
+
     # Custom role definitions with fine-grained scopes
     customRoles: {}
       # viewer:
@@ -175,11 +251,40 @@ sam:
   # ---------------------------------------------------------------------------
   # Feature Enablement
   # ---------------------------------------------------------------------------
-  # Toggle SAM UI features (all enabled by default)
+  # In Go mode (sam.platform: go) these flags drive two systems:
+  #   FEATURE_<KEY>     — frontend display via gwe.yaml substitution
+  #   SAM_FEATURE_<KEY> — backend feature registry (real behavior gates,
+  #                       internal/features/features.yaml + enterprise overlay)
+  # Some flags drive only one system; some drive both. See
+  # templates/configmap-go-env.yaml for per-flag wiring.
+  #
+  # When extending: every key registered in the Go feature registry should
+  # have a typed knob here so operators don't have to fall back to
+  # environmentVariables.SAM_FEATURE_<KEY>.
   featureEnablement:
+    agentBuilder: true
+    agentBuilderEdit: true
+    gatewaysEnabled: false
+    slackGatewayEnabled: false
+    eventMeshGatewayEnabled: false
+    remoteAgentEnabled: false
     awsBedrockEnabled: true
     backgroundTasks: true
     binaryArtifactPreview: true
+    projectIndexing: true
+    projectSharingEnabled: true
+    chatSharing: true
+    # Backend-registry flags. Defaults set to match what gwe.yaml's
+    # frontend_feature_enablement block already advertises to the UI, so the
+    # OpenFeature client and the legacy frontend_feature_enablement map agree.
+    modelConfigUi: true
+    inlineActivityTimeline: true
+    showThinkingContent: true
+    # Defaults left disabled (registry default). Enable per environment.
+    mentions: false
+    autoTitleGeneration: false
+    offlineEvals: false
+    remoteToolExecution: false
 
 # =============================================================================
 # BROKER
@@ -195,15 +300,44 @@ broker:
 # =============================================================================
 # LLM SERVICE (Optional)
 # =============================================================================
-# Configure LLM here or via the SAM UI after installation
-llmService: {}
-  # llmServiceEndpoint: ""  # e.g., "https://api.openai.com/v1"
-  # llmServiceApiKey: ""    # e.g., your API key (or use extraSecretEnvironmentVars below)
-  # planningModel: ""       # e.g., "gpt-4o"
-  # generalModel: ""        # e.g., "gpt-4o"
-  # reportModel: ""         # e.g., "gpt-4o" (optional)
-  # imageModel: ""          # e.g., "dall-e-3" (optional)
-  # transcriptionModel: ""  # e.g., "whisper-1" (optional)
+# Configure LLM here or via the SAM UI after installation.
+# In Go mode (sam.platform: go), non-empty model names + endpoint + apiKey are
+# seeded into the platform's model_configurations table at startup as the
+# `planning`, `general`, `image_gen`, and `report_gen` aliases (idempotent).
+# Empty values cause the corresponding alias to be skipped — operators can
+# still create configurations via the SAM UI after installation.
+llmService:
+  llmServiceEndpoint: ""    # e.g., "https://api.openai.com/v1"
+  llmServiceApiKey: ""      # e.g., your API key (or use extraSecretEnvironmentVars below)
+  planningModel: ""         # e.g., "gpt-4o"
+  generalModel: ""          # e.g., "gpt-4o"
+  reportModel: ""           # e.g., "gpt-4o" (optional)
+  imageModel: ""            # e.g., "dall-e-3" (optional)
+  transcriptionModel: ""    # e.g., "whisper-1" (optional)
+
+# =============================================================================
+# TOOL API KEYS (Optional)
+# =============================================================================
+# Credentials and endpoints for built-in tools and the bundled agent extras
+# (image-agent, audio-agent, research-agent). Empty values are omitted from
+# the rendered Secret so the binary's YAML defaults / sentinel-error paths
+# fire instead of being silently overridden with "".
+#
+# The *ApiBase URLs default to the public provider endpoints so quickstart
+# deployments work out of the box. In an air-gapped or proxied environment,
+# point them at your internal LLM-gateway or egress proxy.
+toolApiKeys:
+  anthropic: ""           # ANTHROPIC_API_KEY
+  gemini: ""              # GEMINI_API_KEY (image + audio agents, gateway describe-image)
+  geminiApiBase: "https://generativelanguage.googleapis.com"
+                          # GEMINI_API_BASE (image-agent generation endpoint;
+                          # override for air-gap / internal LLM proxy)
+  google: ""              # GOOGLE_API_KEY (provider auto-detection)
+  googleSearchApiKey: ""  # GOOGLE_SEARCH_API_KEY (research-agent web search)
+  googleSearchApiBase: "https://www.googleapis.com"
+                          # GOOGLE_SEARCH_API_BASE (research-agent web search
+                          # endpoint; override for air-gap / internal proxy)
+  googleCseId: ""         # GOOGLE_CSE_ID (research-agent web search)
 
 # =============================================================================
 # ENVIRONMENT VARIABLES (Optional)
@@ -218,16 +352,53 @@ extraSecretEnvironmentVars: []
   #   secretName: my-existing-secret
   #   secretKey: SOLACE_BROKER_PASSWORD
 
-# Inject custom environment variables into SAM core containers
-# Note: Variables configured through other sections should not be duplicated here
+# Inject custom environment variables into SAM core containers.
+# Also creates a `{namespaceId}-env-overrides` Secret consumed by runtime
+# agent sub-installs (the agent-deployer references it by name when creating
+# sam-agent-<id> sub-releases).
+#
+# Note: Variables configured through other sections should not be duplicated here.
+# Backend feature-registry flags (SAM_FEATURE_<KEY>) for keys NOT covered by
+# sam.featureEnablement.* above can be added here. Examples:
+#   SAM_FEATURE_MODEL_CONFIG_UI: "true"
+#   SAM_FEATURE_AUTO_TITLE_GENERATION: "true"
+#   SAM_FEATURE_INLINE_ACTIVITY_TIMELINE: "true"
 environmentVariables:
   # Bypass any HTTP proxy for in-cluster traffic (broker, postgres, seaweedfs)
   NO_PROXY: ".svc,.svc.cluster.local,.cluster.local,localhost,127.0.0.1,sam-seaweedfs"
 
+  # For air-gapped / corporate-proxy deployments, route outbound traffic
+  # through your egress proxy by uncommenting and setting:
+  # HTTPS_PROXY: "http://proxy.internal.corp:8080"
+  # HTTP_PROXY:  "http://proxy.internal.corp:8080"
+
   # Feature flags (SAM_FEATURE_<KEY>=true|false)
   # Flags default to the value in features.yaml; env vars override at runtime.
+  # The two SAM_FEATURE_* below are duplicates of values driven by
+  # sam.featureEnablement.projectIndexing / .projectSharingEnabled (which emit
+  # the same env vars in Go mode via configmap-go-env). They are kept here so
+  # the {namespaceId}-env-overrides Secret continues to render with non-empty
+  # data; runtime agent sub-installs reference that Secret. Removing them
+  # would suppress the Secret entirely, which is a BC concern. Behaviorally
+  # the duplicate emission is harmless: the configmap data dict resolves to
+  # one entry per key.
   SAM_FEATURE_PROJECT_SHARING: "true"
   SAM_FEATURE_PROJECT_INDEXING: "true"
+
+  # Backend-registry flags with no sam.featureEnablement.* knob yet.
+  # Without these set, the Go backend's feature registry leaves them at
+  # their features.yaml default (off), which silently disables the
+  # matching UI affordances even when the FE flag in webui_backend.yaml
+  # is true. Set here for parity with rc-sam-go (remote dev).
+  SAM_FEATURE_BINARY_ARTIFACT_PREVIEW: "true"
+  SAM_FEATURE_ARTIFACT_ATTACHMENT: "true"
+  SAM_FEATURE_ARTIFACTS_PAGE: "true"
+  SAM_FEATURE_BUILDER: "true"
+  SAM_FEATURE_CHAT_SHARING: "true"
+  SAM_FEATURE_RBAC: "true"
+  SAM_FEATURE_SCHEDULER: "true"
+  SAM_FEATURE_SLACK_CONNECTOR: "true"
+  SAM_FEATURE_TASK_LOGGING: "true"
 
 # =============================================================================
 # NETWORK CONFIGURATION
@@ -299,16 +470,20 @@ ingress:
   # Note: Leave empty for ALB (accepts all hostnames). Set to your domain for NGINX or other name-based controllers
   host: ""  # e.g., sam.example.com
 
-  # Manual hosts/paths configuration (only used when autoConfigurePaths: false)
+  # Manual hosts/paths configuration (only used when autoConfigurePaths: false).
+  # In Go mode (sam.platform: go) the GWE service exposes only `webui` (and
+  # `webui-tls` when TLS is enabled); other portName values such as `auth`,
+  # `platform`, `orchestrator` exist on Python's core service only and will
+  # produce ingress rules pointing at non-existent ports.
   hosts: []
     # - host: "sam.example.com"
     #   paths:
     #     - path: /api/v1/platform
     #       pathType: Prefix
-    #       portName: platform
+    #       portName: platform        # Python only — Go uses single-port routing
     #     - path: /login
     #       pathType: Prefix
-    #       portName: auth
+    #       portName: auth            # Python only — Go uses single-port routing
     #     - path: /
     #       pathType: Prefix
     #       portName: webui
@@ -369,6 +544,18 @@ dataStores:
     evalDataBucketName: ""        # Optional GCS bucket for eval execution data & artifact snapshots. Defaults to bucketName when empty.
 
 # =============================================================================
+# SHARED VOLUMES (SAM "volumes" feature)
+# =============================================================================
+# Shared filesystem volume store for the SAM "volumes" feature. When enabled,
+# an existing RWX PVC (e.g. EFS-backed) is mounted at mountPath on the gwe,
+# str, and awe pods so the gateway volume_service store and the STR tool
+# mounts share one filesystem. Off by default.
+volumes:
+  enabled: false
+  existingClaim: ""          # required when enabled; an RWX PVC
+  mountPath: /app/data/volumes
+
+# =============================================================================
 # DEPLOYMENT
 # =============================================================================
 samDeployment:
@@ -393,7 +580,7 @@ samDeployment:
   image:
     registry: ""                              # Overrides global.imageRegistry for this image only
     repository: solace-agent-mesh-enterprise
-    tag: "1.543.0"
+    tag: "1.547.0"
     digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
     pullPolicy: IfNotPresent
 
@@ -405,8 +592,13 @@ samDeployment:
       tag: "1.8.2"
       digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
       pullPolicy: IfNotPresent
-    version: "k8s-1.501.6"
+    version: "k8s-1.501.11"
     chartVersion: "1.501.0"
+
+    # In-cluster API host for the deployer's helm client. Only applied when
+    # HTTP_PROXY/HTTPS_PROXY is set, so the .svc NO_PROXY rule bypasses the proxy.
+    # Set to "" if your API server cert lacks a kubernetes.default.svc SAN.
+    kubeApiHost: "kubernetes.default.svc"
 
     # In-cluster API host for the deployer's helm client. Only applied when
     # HTTP_PROXY/HTTPS_PROXY is set, so the .svc NO_PROXY rule bypasses the proxy.
@@ -431,6 +623,71 @@ samDeployment:
       digest: ""
       pullPolicy: IfNotPresent
 
+  # ---------------------------------------------------------------------------
+  # Go-mode deployables — GWE, AWE, STR (rendered only when sam.platform is "go")
+  # ---------------------------------------------------------------------------
+
+  # GWE (Gateway Executor) — single GatewayProxy dispatching HTTP to gateway handlers, the platform service, and static assets on one port
+  gwe:
+    image:
+      registry: ""                              # Overrides global.imageRegistry for this image only
+      repository: solace-agent-mesh
+      # Tag pins the build this chart version was validated against. The Go
+      # release pipeline does not yet publish stable semver tags, so a rolling
+      # `sam-go-helm-2.x` tag is the shared reference used across migration-PR
+      # test deploys. Replace when re-validating against a newer build.
+      tag: "sam-go-helm-2.x"
+      digest: ""
+      pullPolicy: IfNotPresent
+    resources: {}
+    # Sandbox pod runtime profile name (must be defined in global.podRuntimes).
+    # Empty disables sandbox runtime selection for this workload.
+    podRuntime: ""
+
+  # AWE (Agent-Workflow Executor) — runs agent workflows; shares GWE's container image
+  # by default. The chart resolves awe.image via templates/_helpers.tpl
+  # `sam.component.image` with field-by-field fallback to gwe.image: each of
+  # registry/repository/tag/digest/pullPolicy individually inherits when blank.
+  # That means an operator can override e.g. only awe.image.tag without losing
+  # the gwe.image.registry/repository/digest defaults.
+  awe:
+    image:
+      registry: ""
+      repository: ""    # blank inherits gwe.image.repository (default: solace-agent-mesh)
+      tag: ""           # blank inherits gwe.image.tag (the validated build pin)
+      digest: ""        # blank inherits gwe.image.digest
+      # pullPolicy is intentionally omitted so sam.component.image falls back
+      # to gwe.image.pullPolicy. The imageSpec schema enum (IfNotPresent /
+      # Always / Never) doesn't accept empty string, so to override here set
+      # an explicit value rather than blanking it.
+    resources: {}
+    # Additional --config files to load alongside the default sam.yaml.
+    # Used to opt into agents that ship baked into the image but don't run by
+    # default. The Doc-Converter test agent at /etc/sam/configs/awe/doc-converter.yaml
+    # depends on STR's libreoffice/ffmpeg/image_magick tools, so it should only
+    # be enabled in environments that also deploy STR (PR4+) and that bump
+    # GATEWAY_ARTIFACT_LIMIT_BYTES to handle larger artifacts (videos, etc.).
+    # Example (per-environment values overlay):
+    #   extraConfigs:
+    #     - /etc/sam/configs/awe/doc-converter.yaml
+    extraConfigs: []
+    # Sandbox pod runtime profile name (must be defined in global.podRuntimes).
+    # Empty disables sandbox runtime selection for this workload.
+    podRuntime: ""
+
+  # STR (Secure Tool Runtime) — authenticates tool invocations and executes baked Go + Python tools; separate image with Python venvs
+  # Do not blank image.repository here: STR would inherit gwe.image, which lacks the Go/Python tool venvs and silently breaks tool execution.
+  str:
+    image:
+      registry: ""
+      repository: solace-agent-mesh-str
+      tag: "sam-go-helm-2.x"
+      digest: ""
+      pullPolicy: IfNotPresent
+    resources: {}
+    # Sandbox pod runtime profile name (must be defined in global.podRuntimes).
+    # Empty disables sandbox runtime selection for this workload.
+    podRuntime: ""
 
   # Custom CA certificate injection
   # When enabled, a ca-merge init container runs before the main container. It copies the system

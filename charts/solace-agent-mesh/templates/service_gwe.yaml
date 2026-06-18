@@ -1,0 +1,14 @@
+{{- if eq (.Values.sam.platform | default "python") "go" }}
+{{- $ports := list -}}
+{{- $ports = append $ports (dict "port" 80 "targetPort" 8080 "protocol" "TCP" "name" "webui") -}}
+{{- if .Values.service.tls.enabled -}}
+{{- $ports = append $ports (dict "port" 443 "targetPort" 8443 "protocol" "TCP" "name" "webui-tls") -}}
+{{- end -}}
+{{- $config := dict
+  "component" "gwe"
+  "type" .Values.service.type
+  "annotations" .Values.service.annotations
+  "ports" $ports
+-}}
+{{- include "sam.service" (dict "root" . "config" $config) }}
+{{- end }}

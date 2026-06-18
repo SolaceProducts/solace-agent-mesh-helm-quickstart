@@ -20,6 +20,11 @@
       "type": "object",
       "description": "SAM application configuration",
       "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["python", "go"],
+          "description": "Platform implementation: 'python' (default, runs the Python monolith core pod) or 'go' (runs the Go GWE pod; AWE/STR land in subsequent PRs). Python mode is unchanged from prior releases. Go mode renders a distinct deployment set and expects the Go DSN scheme in secrets."
+        },
         "communityMode": {
           "type": "boolean",
           "description": "Internal use only"
@@ -38,6 +43,23 @@
           "type": "string",
           "description": "DNS name for accessing the web UI and API (e.g. sam.example.com). Optional for port-forward and Ingress; required for LoadBalancer/NodePort access."
         },
+        "fe": {
+          "type": "object",
+          "description": "Optional overrides for the FE's API base URL (consumed via /api/v1/config). Omit entirely to derive from sam.dnsName (default, current behavior). Set apiBaseUrl/platformBaseUrl to \"\" for same-origin (port-forward, embedding) or to an absolute http(s) URL for explicit cross-origin topologies. Only affects the FE config response — OAuth callback URLs, MCP gateway issuer, and connector service URL continue to use sam.dnsName.",
+          "properties": {
+            "apiBaseUrl": {
+              "type": "string",
+              "pattern": "^(|https?://[^\\s\"'<>]+)$",
+              "description": "Override for the FE's webuiServerUrl. Empty string forces same-origin; otherwise must be an http(s) URL."
+            },
+            "platformBaseUrl": {
+              "type": "string",
+              "pattern": "^(|https?://[^\\s\"'<>]+)$",
+              "description": "Override for the FE's platformServerUrl. Empty string forces same-origin; otherwise must be an http(s) URL."
+            }
+          },
+          "additionalProperties": false
+        },
         "sessionSecretKey": {
           "type": "string",
           "description": "Session encryption secret. Leave empty to auto-generate on first install (stable across upgrades)."
@@ -45,6 +67,10 @@
         "oauthProvider": {
           "type": "object",
           "properties": {
+            "providerName": {
+              "type": "string",
+              "description": "Name of the entry in the binary's oidc_providers.yaml catalog to dispatch to. Empty falls back to the binary's default (`azure`)."
+            },
             "oidc": {
               "type": "object",
               "properties": {
@@ -99,6 +125,10 @@
           "type": "object",
           "description": "RBAC configuration. Choose ONE method: static users OR idpClaims (dynamic from IDP).",
           "properties": {
+            "disableBuiltinRoles": {
+              "type": "boolean",
+              "description": "Suppress built-in sam_admin/sam_user roles from the rendered role-to-scope-definitions.yaml (default false). Enable when role definitions are owned by DB-managed RBAC via `sam config apply`."
+            },
             "customRoles": {
               "type": "object",
               "description": "Custom role definitions",
@@ -184,6 +214,20 @@
       },
       "additionalProperties": false
     },
+    "toolApiKeys": {
+      "type": "object",
+      "description": "Credentials and endpoints consumed by built-in tools and bundled agents (image, audio, research). Empty values are omitted from the rendered Secret.",
+      "properties": {
+        "anthropic":           { "type": "string", "description": "ANTHROPIC_API_KEY" },
+        "gemini":              { "type": "string", "description": "GEMINI_API_KEY (image + audio agents, gateway describe-image)" },
+        "geminiApiBase":       { "type": "string", "description": "GEMINI_API_BASE — image-agent generation endpoint. Defaults to the public Google endpoint; override for air-gap / internal LLM proxy." },
+        "google":              { "type": "string", "description": "GOOGLE_API_KEY (provider auto-detection)" },
+        "googleSearchApiKey":  { "type": "string", "description": "GOOGLE_SEARCH_API_KEY (research-agent web search)" },
+        "googleSearchApiBase": { "type": "string", "description": "GOOGLE_SEARCH_API_BASE — research-agent web search endpoint. Defaults to the public Google endpoint; override for air-gap / internal proxy." },
+        "googleCseId":         { "type": "string", "description": "GOOGLE_CSE_ID (research-agent web search)" }
+      },
+      "additionalProperties": false
+    },
     "service": {
       "type": "object",
       "description": "Kubernetes Service configuration.",
@@ -260,6 +304,20 @@
           "type": "string",
           "description": "Pull-credentials JSON for private registries. Expects the K8s Secret data shape `{ \".dockerconfigjson\": \"<base64>\" }`. Use --set-file global.imagePullKey=path/to/creds.json."
         },
+        "podRuntimes": {
+          "type": "object",
+          "description": "Named pod runtime profiles (gVisor, Kata, Firecracker, etc.). Each profile couples runtimeClassName, nodeSelector, and tolerations — the three fields a sandbox runtime always needs together. Reference a profile from a workload via samDeployment.{component}.podRuntime: <profile-name>. Referencing an unknown profile, or referencing a profile whose runtimeClassName is empty, fails the render.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["runtimeClassName"],
+            "properties": {
+              "runtimeClassName": { "type": "string", "minLength": 1, "description": "Name of the Kubernetes RuntimeClass to use (e.g. gvisor, kata). Required: a profile without a runtimeClassName would defeat the security intent." },
+              "nodeSelector":     { "type": "object", "description": "Node labels required for pods using this profile (may be empty if the runtime is installed cluster-wide)", "additionalProperties": { "type": "string" } },
+              "tolerations":      { "type": "array",  "description": "Tolerations required for pods using this profile (may be empty if nodes are not tainted)", "items": { "type": "object" } }
+            },
+            "additionalProperties": false
+          }
+        },
         "broker": {
           "type": "object",
           "description": "Embedded Solace broker configuration",
@@ -330,6 +388,41 @@
           "type": "object",
           "properties": {
             "image": { "$ref": "#/definitions/imageSpec" }
+          },
+          "additionalProperties": false
+        },
+        "gwe": {
+          "type": "object",
+          "description": "GWE (Gateway Executor) pod configuration. Rendered when sam.platform is 'go'. Dispatches HTTP to gateway handlers, the platform service, and static assets on a single port.",
+          "properties": {
+            "image":       { "$ref": "#/definitions/imageSpec" },
+            "resources":   { "type": "object", "description": "Resource requests and limits for the GWE container" },
+            "podRuntime":  { "type": "string", "description": "Sandbox pod runtime profile name (must be defined in global.podRuntimes). Empty disables sandbox runtime selection for this workload." }
+          },
+          "additionalProperties": false
+        },
+        "awe": {
+          "type": "object",
+          "description": "AWE (Agent-Workflow Executor) pod configuration. Rendered when sam.platform is 'go'. Runs agent workflows; shares GWE's container image — leave image.repository empty to inherit gwe.image.",
+          "properties": {
+            "image":      { "$ref": "#/definitions/imageSpec" },
+            "resources":  { "type": "object", "description": "Resource requests and limits for the AWE container" },
+            "extraConfigs": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Additional --config file paths passed to sam-awe alongside the default sam.yaml. Used to enable optional baked agents (e.g. doc-converter.yaml) on a per-environment basis."
+            },
+            "podRuntime": { "type": "string", "description": "Sandbox pod runtime profile name (must be defined in global.podRuntimes). Empty disables sandbox runtime selection for this workload." }
+          },
+          "additionalProperties": false
+        },
+        "str": {
+          "type": "object",
+          "description": "STR (Secure Tool Runtime) pod configuration. Rendered when sam.platform is 'go'. Authenticates tool invocations and executes baked Go + Python tools; the Python venvs live only in this image. Falls back to gwe.image if repository is blanked (WARNING: silently breaks tool execution).",
+          "properties": {
+            "image":      { "$ref": "#/definitions/imageSpec" },
+            "resources":  { "type": "object", "description": "Resource requests and limits for the STR container" },
+            "podRuntime": { "type": "string", "description": "Sandbox pod runtime profile name (must be defined in global.podRuntimes). Empty disables sandbox runtime selection for this workload." }
           },
           "additionalProperties": false
         },
@@ -494,6 +587,25 @@
         "clusterResourceChecks": {
           "type": "boolean",
           "description": "Enable template-time existence checks for referenced cluster resources. Set to false if the service account lacks 'get' permission."
+        }
+      },
+      "additionalProperties": false
+    },
+    "volumes": {
+      "type": "object",
+      "description": "Shared filesystem volume store for the SAM 'volumes' feature. When enabled, an existing RWX PVC is mounted at mountPath on the gwe, str, and awe pods so the gateway volume_service store and the STR tool mounts share one filesystem.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Mount the shared volumes PVC on the gwe/str/awe pods. Off by default."
+        },
+        "existingClaim": {
+          "type": "string",
+          "description": "Name of an existing RWX (ReadWriteMany) PVC, e.g. EFS-backed. Required when enabled."
+        },
+        "mountPath": {
+          "type": "string",
+          "description": "Path the shared volume is mounted at inside each pod."
         }
       },
       "additionalProperties": false

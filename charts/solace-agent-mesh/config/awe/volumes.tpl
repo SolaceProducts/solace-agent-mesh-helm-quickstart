@@ -1,0 +1,2 @@
+- name: data-dir
+  emptyDir: {}

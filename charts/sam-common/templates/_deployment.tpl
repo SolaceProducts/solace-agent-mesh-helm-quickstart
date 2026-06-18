@@ -38,8 +38,9 @@ config keys:
     name             string    Optional  — explicit SA name (default: {fullname}-{component}-sa)
     annotations      object    Optional  — SA annotations (rendered by sam.serviceAccount, not here)
   imagePullSecrets   []string  Optional  — merged with global.imagePullSecrets
-  nodeSelector       object    Optional
-  tolerations        []object  Optional
+  nodeSelector       object    Optional  — merged with profile selector when podRuntime is set
+  tolerations        []object  Optional  — concatenated with profile tolerations when podRuntime is set
+  podRuntime         string    Optional  — name of a profile in global.podRuntimes (resolves to runtimeClassName + nodeSelector + tolerations)
   caInitImage        object    Optional  — image dict for the ca-merge init container (which image runs the merge)
                                            assumed Debian-based: needs sh, cp, cat, /etc/ssl/certs/ca-certificates.crt
   customCA:
@@ -141,13 +142,8 @@ spec:
             {{- with $cfg.container.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-      {{- with $cfg.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with $cfg.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
+      {{- with (include "sam.podRuntime.scheduling" (dict "root" $root "config" $cfg)) }}
+      {{- . | nindent 6 }}
       {{- end }}
       volumes:
         - name: empty-dir

@@ -44,6 +44,37 @@ annotations:
 {{- end }}
 {{- end }}
 
+{{/* ---- Component image resolver (Go mode) ---- */}}
+
+{{/*
+Resolve the image dict for a Go-mode component (awe, str), with field-by-field
+fallback to samDeployment.gwe.image. Each of registry/repository/tag/digest/
+pullPolicy prefers samDeployment.<component>.image.<field> when non-empty,
+else falls back to samDeployment.gwe.image.<field>.
+
+Field-by-field (not whole-dict) so an operator overriding only one field —
+e.g. awe.image.registry — doesn't silently lose that override and inherit
+nothing else from the override path. Per 10-pr-comments.md §3.
+
+STR caveat: STR ships a separate image (solace-agent-mesh-str) that bakes
+Python tool venvs. Operators must not blank str.image.repository — falling
+back to gwe.image silently breaks tool execution. This is not currently
+guarded in _validations.tpl.
+
+Args: (dict "root" . "component" "awe")
+Returns: YAML image dict suitable for `toYaml | fromYaml` round-trip.
+*/}}
+{{- define "sam.component.image" -}}
+{{- $component := .component -}}
+{{- $img := index .root.Values.samDeployment $component "image" -}}
+{{- $gwe := .root.Values.samDeployment.gwe.image -}}
+registry: {{ $img.registry | default $gwe.registry | quote }}
+repository: {{ $img.repository | default $gwe.repository | quote }}
+tag: {{ $img.tag | default $gwe.tag | quote }}
+digest: {{ $img.digest | default $gwe.digest | quote }}
+pullPolicy: {{ $img.pullPolicy | default $gwe.pullPolicy | quote }}
+{{- end -}}
+
 {{/* ---- Broker mode ---- */}}
 
 {{/*
@@ -68,6 +99,7 @@ Args: (dict "root" . "image" <imageSpec>)
 {{- $brokerHost := include "sam.names.component" (dict "root" .root "component" "broker") -}}
 - name: broker-init
   image: {{ include "sam.images.image" (dict "root" .root "image" .image) | quote }}
+  imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
   securityContext:
     {{- include "sam.security.containerContext" (dict "override" dict) | nindent 4 }}
   command:

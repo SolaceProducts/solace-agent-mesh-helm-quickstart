@@ -1,10 +1,11 @@
-{{- if not .Values.sam.communityMode }}
+{{- if or (not .Values.sam.communityMode) (eq (.Values.sam.platform | default "python") "go") }}
 {{ include "sam.config.metadata" (dict "root" . "name" "role-definitions") }}
 data:
   # For more information on RBAC role definitions and scope patterns, see:
   # https://solacelabs.github.io/solace-agent-mesh/docs/documentation/enterprise/rbac-setup-guide
   role-to-scope-definitions.yaml: |
     roles:
+{{- if not (and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.disableBuiltinRoles) }}
       sam_admin:
         description: "Full access for SAM administrators"
         scopes:
@@ -17,7 +18,9 @@ data:
           - "tool:basic:search"
           - "tool:artifact:list"
           - "tool:artifact:load"
+          - "tool:document_search:execute"
           - "project:share"
+{{- end }}
 {{- if and .Values.sam.authenticationRbac .Values.sam.authenticationRbac.customRoles }}
 {{- range $roleName, $roleConfig := .Values.sam.authenticationRbac.customRoles }}
       {{ $roleName }}:

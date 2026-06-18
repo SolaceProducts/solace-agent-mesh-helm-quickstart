@@ -1,0 +1,221 @@
+{{- if eq (.Values.sam.platform | default "python") "go" }}
+{{- $urls := include "sam.urls.compute" . | fromYaml }}
+{{ include "sam.config.metadata" (dict "root" . "name" "go-env" "component" "gwe") }}
+data:
+  # Namespace — broker topic prefix; must match agent publishers
+  NAMESPACE: {{ required "global.persistence.namespaceId is required." .Values.global.persistence.namespaceId | quote }}
+
+  # Broker config flags
+  SOLACE_DEV_MODE: "false"
+  USE_TEMPORARY_QUEUES: "false"
+
+  # LLM model names and endpoints (API keys are in core-secrets).
+  # The platform's model_config_seed.go consumes these at startup to seed
+  # the corresponding aliases in the model_configurations table:
+  #   planning  <- LLM_SERVICE_PLANNING_MODEL_NAME
+  #   general   <- LLM_SERVICE_GENERAL_MODEL_NAME
+  #   image_gen <- IMAGE_MODEL_NAME (uses IMAGE_SERVICE_ENDPOINT/_API_KEY)
+  #   report_gen <- LLM_REPORT_MODEL_NAME
+  # Each var is emitted only when llmService.<field> is non-empty.
+  # Setting an env var to "" suppresses the binary's `${VAR, default}`
+  # fallback (e.g. `${LLM_SERVICE_GENERAL_MODEL_NAME, openai/gpt-4o}` in
+  # configs/gwe/gwe.yaml — Go's YAML substitution treats unset
+  # and set-empty differently); leaving the var fully unset lets the binary
+  # apply its sentinel defaults and produce diagnostic errors instead of
+  # opaque "provider is required" failures.
+  {{- with .Values.llmService.generalModel }}
+  LLM_SERVICE_GENERAL_MODEL_NAME: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.llmService.planningModel }}
+  LLM_SERVICE_PLANNING_MODEL_NAME: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.llmService.reportModel }}
+  LLM_REPORT_MODEL_NAME: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.llmService.imageModel }}
+  IMAGE_MODEL_NAME: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.llmService.llmServiceEndpoint }}
+  LLM_SERVICE_ENDPOINT: {{ . | quote }}
+  IMAGE_SERVICE_ENDPOINT: {{ . | quote }}
+  {{- end }}
+
+  # WebUI Gateway — in-process with platform service
+  WEBUI_GATEWAY_ID: {{ printf "%s-gateway" (include "sam.names.fullname" .) | quote }}
+  FASTAPI_HOST: "0.0.0.0"
+  FASTAPI_PORT: "8080"
+  {{- if .Values.service.tls.enabled }}
+  FASTAPI_HTTPS_PORT: "8443"
+  {{- end }}
+
+  # Platform service (runs in-process via GatewayProxy; bind port is internal only)
+  PLATFORM_API_HOST: "0.0.0.0"
+  PLATFORM_API_PORT: "8001"
+  PLATFORM_SERVICE_URL: {{ $urls.platformServiceUrl | quote }}
+
+  # CORS
+  CORS_ALLOWED_ORIGIN_REGEX: {{ .Values.sam.cors.allowedOriginRegex | quote }}
+
+  # Object storage — bucket names/creds are in the storage secret
+  OBJECT_STORAGE_TYPE: {{ include "sam.objectStorage.type" . | quote }}
+  SAM_DATA_DIR: "/app/data"
+
+  # Frontend config
+  FRONTEND_WELCOME_MESSAGE: "How can I assist you today?"
+  FRONTEND_BOT_NAME: "Solace Agent Mesh"
+  FRONTEND_COLLECT_FEEDBACK: "false"
+
+  # Gateway
+  ENABLE_EMBED_RESOLUTION: "true"
+  # 100 MB — matches the Go binary's natural default in
+  # configs/gwe/gwe.yaml. Operators wanting a different limit
+  # can override via environmentVariables.GATEWAY_ARTIFACT_LIMIT_BYTES.
+  GATEWAY_ARTIFACT_LIMIT_BYTES: "100000000"
+
+  # TLS paths (passphrase is in core-secrets when set)
+  {{- if .Values.service.tls.enabled }}
+  SSL_CERTFILE: "/app/certs/tls.crt"
+  SSL_KEYFILE: "/app/certs/tls.key"
+  {{- else }}
+  SSL_CERTFILE: ""
+  SSL_KEYFILE: ""
+  {{- end }}
+
+  # Session service — Postgres-backed when sam.platform: go.
+  # WEB_UI_SESSION_SERVICE_TYPE is consumed by GWE's gwe.yaml; the generic
+  # SESSION_SERVICE_TYPE is consumed by AWE's sam.yaml (or any extraConfigs
+  # like doc-converter.yaml) — single shared session store across all agents
+  # in the AWE process.
+  WEB_UI_SESSION_SERVICE_TYPE: "sql"
+  SESSION_SERVICE_TYPE: "sql"
+
+  # Task logging (STIM event capture) — driven from sam.taskLogging.*
+  {{- $tl := .Values.sam.taskLogging | default dict }}
+  {{- $tlBuf := $tl.hybridBuffer | default dict }}
+  TASK_LOGGING_ENABLED: {{ dig "enabled" true $tl | toString | quote }}
+  TASK_LOGGING_STATUS_UPDATES: {{ dig "logStatusUpdates" true $tl | toString | quote }}
+  TASK_LOGGING_ARTIFACT_EVENTS: {{ dig "logArtifactEvents" false $tl | toString | quote }}
+  TASK_LOGGING_FILE_PARTS: {{ dig "logFileParts" true $tl | toString | quote }}
+  TASK_LOGGING_MAX_FILE_PART_SIZE: {{ dig "maxFilePartSizeBytes" 10240 $tl | toString | quote }}
+  TASK_LOGGING_HYBRID_BUFFER: {{ dig "enabled" true $tlBuf | toString | quote }}
+  TASK_LOGGING_FLUSH_THRESHOLD: {{ dig "flushThreshold" 10 $tlBuf | toString | quote }}
+
+  # RBAC: enforce role-based access when sam.authorization.enabled is true
+  AUTHORIZATION_TYPE: {{ ternary "default_rbac" "none" .Values.sam.authorization.enabled | quote }}
+
+  # Trust manager issues/verifies the JWTs that GWE attaches to remote-tool
+  # calls into STR (e.g. libreoffice_convert for /document-conversion/to-pdf).
+  # The issuer only runs when authorization is enabled; if STR's verifier is
+  # left on while authorization is off, every GWE→STR invocation fails with
+  # "JWT verification failed" / AUTHENTICATION_FAILED. Track the auth switch.
+  TRUST_MANAGER_ENABLED: {{ .Values.sam.authorization.enabled | toString | quote }}
+
+  # RBAC config file paths (Go working dir is /app/data)
+  ROLE_DEFINITIONS_PATH: "/app/data/config/auth/role-to-scope-definitions.yaml"
+  USER_ROLES_PATH: "/app/data/config/auth/user-to-role-assignments.yaml"
+
+  # External auth (OIDC) — provider name matches a key in the baked
+  # /etc/sam/configs/gwe/auth/oidc_providers.yaml catalog. The default catalog
+  # ships a single entry named `azure` whose issuer/client_id/client_secret
+  # are sourced from OIDC_* env vars in the auth-secrets Secret, so the same
+  # entry works for any OIDC IdP (Keycloak, Okta, real Azure, etc.).
+  # gwe.yaml has `${EXTERNAL_AUTH_PROVIDER, azure}` — Go's YAML substitution
+  # treats set-empty as a real value (suppresses the default), so we emit
+  # the var only when the operator overrides; otherwise let the binary's
+  # `azure` fallback fire.
+  {{- with .Values.sam.oauthProvider.providerName }}
+  EXTERNAL_AUTH_PROVIDER: {{ . | quote }}
+  {{- end }}
+  EXTERNAL_AUTH_CALLBACK: {{ $urls.authCallbackUrl | quote }}
+  EXTERNAL_AUTH_SERVICE_URL: {{ $urls.authServiceUrl | quote }}
+  {{- if and .Values.sam.oauthProvider .Values.sam.oauthProvider.oidc .Values.sam.oauthProvider.oidc.issuer .Values.sam.authorization.enabled }}
+  FRONTEND_USE_AUTHORIZATION: "true"
+  {{- else }}
+  FRONTEND_USE_AUTHORIZATION: "false"
+  {{- end }}
+
+  # Feature flags. Go has two distinct flag systems:
+  #   FEATURE_<KEY>     — substituted into gwe.yaml's frontend_feature_enablement
+  #                       block (surfaced via /api/v1/config for the UI).
+  #   SAM_FEATURE_<KEY> — read by the backend feature registry
+  #                       (internal/features/features.go); gates real platform
+  #                       behavior (e.g. /api/v1/platform/models).
+  # Per-flag mapping/status documented inline in the Group 1/2/3 notes below.
+  # Use `dig` so missing keys fall back to the values.yaml shipped defaults
+  # (an operator override of `featureEnablement: {}` would otherwise emit
+  # "<no value>" into the configmap and break gwe.yaml substitution).
+  {{- $fe := .Values.sam.featureEnablement | default dict }}
+
+  # FEATURE_* — frontend display via gwe.yaml ${FEATURE_*} substitution.
+  # Group 1 — verified live in gwe.yaml: AWS_BEDROCK, BACKGROUND_TASKS,
+  # BINARY_ARTIFACT_PREVIEW, CHAT_SHARING.
+  # Group 3 — kept as operator surface for in-flight Go ports
+  # (agent_builder, slack_gateway, event_mesh, remote_agent).
+  # gateways_enabled has no Go-code references; included for chart-API parity
+  # with Python.
+  FEATURE_AGENT_BUILDER: {{ dig "agentBuilder" true $fe | toString | quote }}
+  FEATURE_AGENT_BUILDER_EDIT: {{ dig "agentBuilderEdit" true $fe | toString | quote }}
+  FEATURE_GATEWAYS_ENABLED: {{ dig "gatewaysEnabled" false $fe | toString | quote }}
+  FEATURE_SLACK_GATEWAY: {{ dig "slackGatewayEnabled" false $fe | toString | quote }}
+  FEATURE_EVENT_MESH_GATEWAY: {{ dig "eventMeshGatewayEnabled" false $fe | toString | quote }}
+  FEATURE_REMOTE_AGENT: {{ dig "remoteAgentEnabled" false $fe | toString | quote }}
+  FEATURE_AWS_BEDROCK: {{ dig "awsBedrockEnabled" true $fe | toString | quote }}
+  FEATURE_BACKGROUND_TASKS: {{ dig "backgroundTasks" true $fe | toString | quote }}
+  FEATURE_BINARY_ARTIFACT_PREVIEW: {{ dig "binaryArtifactPreview" true $fe | toString | quote }}
+  FEATURE_PROJECT_INDEXING: {{ dig "projectIndexing" true $fe | toString | quote }}
+  FEATURE_PROJECT_SHARING: {{ dig "projectSharingEnabled" true $fe | toString | quote }}
+  FEATURE_CHAT_SHARING: {{ dig "chatSharing" true $fe | toString | quote }}
+
+  # SAM_FEATURE_* — backend feature registry (internal/features/features.yaml +
+  # internal/enterprise/features/features.yaml). Each registered key has a
+  # corresponding sam.featureEnablement.* knob in values.yaml.
+  SAM_FEATURE_BACKGROUND_TASKS: {{ dig "backgroundTasks" true $fe | toString | quote }}
+  SAM_FEATURE_PROJECT_INDEXING: {{ dig "projectIndexing" true $fe | toString | quote }}
+  SAM_FEATURE_PROJECT_SHARING: {{ dig "projectSharingEnabled" true $fe | toString | quote }}
+  SAM_FEATURE_MODEL_CONFIG_UI: {{ dig "modelConfigUi" true $fe | toString | quote }}
+  SAM_FEATURE_INLINE_ACTIVITY_TIMELINE: {{ dig "inlineActivityTimeline" true $fe | toString | quote }}
+  SAM_FEATURE_SHOW_THINKING_CONTENT: {{ dig "showThinkingContent" true $fe | toString | quote }}
+  SAM_FEATURE_MENTIONS: {{ dig "mentions" false $fe | toString | quote }}
+  SAM_FEATURE_AUTO_TITLE_GENERATION: {{ dig "autoTitleGeneration" false $fe | toString | quote }}
+  SAM_FEATURE_OFFLINE_EVALS: {{ dig "offlineEvals" false $fe | toString | quote }}
+  SAM_FEATURE_REMOTE_TOOL_EXECUTION: {{ dig "remoteToolExecution" false $fe | toString | quote }}
+
+  # Computed URLs.
+  # FRONTEND_REDIRECT_URL is the post-auth UI page (the SPA route that finishes
+  # bootstrapping after OIDC), distinct from EXTERNAL_AUTH_CALLBACK which is the
+  # API endpoint the IdP posts to. Conflating the two sends the user to the JSON
+  # API instead of the SPA.
+  FRONTEND_SERVER_URL: {{ $urls.frontendServerUrl | quote }}
+  WEBUI_FRONTEND_SERVER_URL: {{ $urls.frontendServerUrl | quote }}
+  WEBUI_FRONTEND_URL: {{ $urls.frontendServerUrl | quote }}
+  FRONTEND_REDIRECT_URL: {{ printf "%s/auth-callback.html" $urls.frontendServerUrl | quote }}
+
+  # sam.fe.apiBaseUrl / platformBaseUrl override (Go-mode counterpart of the
+  # configmap-webui.yaml override that targets Python core). Go-mode GWE reads
+  # its baked-in /etc/sam/configs/gwe/gwe.yaml which uses ${FRONTEND_SERVER_URL}
+  # and ${PLATFORM_SERVICE_URL} substitutions, so the override mechanism for
+  # Go mode is at the env-var layer. Re-emitting the same keys after the chart
+  # defaults wins — last entry in a ConfigMap data map takes precedence.
+  #
+  # Deliberately NOT overriding WEBUI_FRONTEND_SERVER_URL or FRONTEND_REDIRECT_URL:
+  #   - WEBUI_FRONTEND_SERVER_URL feeds the MCP gateway issuer construction
+  #     (internal/enterprise/platform/yaml_service.go) and must remain the
+  #     absolute public hostname even when the FE wants same-origin API calls.
+  #   - FRONTEND_REDIRECT_URL is the post-OIDC SPA bootstrap URL. OIDC
+  #     redirect URIs must be absolute (IdP registration requirement).
+  {{- if and .Values.sam.fe (hasKey .Values.sam.fe "apiBaseUrl") }}
+  FRONTEND_SERVER_URL: {{ .Values.sam.fe.apiBaseUrl | quote }}
+  {{- end }}
+  {{- if and .Values.sam.fe (hasKey .Values.sam.fe "platformBaseUrl") }}
+  PLATFORM_SERVICE_URL: {{ .Values.sam.fe.platformBaseUrl | quote }}
+  {{- end }}
+
+  # Custom environment variables (operator escape hatch — same block as configmap-core-env)
+  {{- if .Values.environmentVariables }}
+  {{- if kindIs "map" .Values.environmentVariables }}
+  {{- range $key, $value := .Values.environmentVariables }}
+  {{ $key }}: {{ $value | toString | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

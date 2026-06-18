@@ -1,0 +1,6 @@
+dependencies:
+- name: sam-common
+  repository: file://../sam-common
+  version: 1.1.0
+digest: sha256:565d03c0703a67cad6fec07d490def9c3be09114d5562c693888dfd2d4c42f94
+generated: "2026-05-14T20:34:18.340283-04:00"

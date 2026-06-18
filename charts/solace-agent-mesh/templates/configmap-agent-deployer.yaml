@@ -1,4 +1,4 @@
-{{- if not .Values.sam.communityMode }}
+{{- if and (ne (.Values.sam.platform | default "python") "go") (not .Values.sam.communityMode) }}
 {{ include "sam.config.metadata" (dict "root" . "name" "agent-deployer-config" "component" "agent-deployer") }}
 data:
   HELM_CACHE_HOME: "/tmp"
