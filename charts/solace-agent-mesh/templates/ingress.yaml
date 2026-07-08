@@ -32,8 +32,6 @@ spec:
       {{- end }}
       http:
         paths:
-          {{- $isGo := eq (.Values.sam.platform | default "python") "go" }}
-          {{- if not $isGo }}
           - path: /login
             pathType: Prefix
             backend:
@@ -83,17 +81,15 @@ spec:
                 name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: platform
-          {{- end }}
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sam.names.component" (dict "root" . "component" (ternary "gwe" "core" $isGo)) }}
+                name: {{ include "sam.names.component" (dict "root" . "component" "core") }}
                 port:
                   name: webui
     {{- else }}
     {{- /* Manual hosts/paths configuration mode */ -}}
-    {{- $manualComponent := ternary "gwe" "core" (eq ($.Values.sam.platform | default "python") "go") }}
     {{- range .Values.ingress.hosts }}
     - {{- if .host }}
       host: {{ .host | quote }}
@@ -105,7 +101,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "sam.names.component" (dict "root" $ "component" $manualComponent) }}
+                name: {{ include "sam.names.component" (dict "root" $ "component" "core") }}
                 port:
                   {{- if .portName }}
                   name: {{ .portName }}

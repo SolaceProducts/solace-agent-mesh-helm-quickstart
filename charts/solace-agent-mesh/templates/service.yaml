@@ -1,4 +1,3 @@
-{{- if ne (.Values.sam.platform | default "python") "go" }}
 {{- $config := dict
   "component" "core"
   "type" .Values.service.type
@@ -6,4 +5,3 @@
   "ports" (include "sam.service.ports" . | fromYamlArray)
 -}}
 {{- include "sam.service" (dict "root" . "config" $config) }}
-{{- end }}

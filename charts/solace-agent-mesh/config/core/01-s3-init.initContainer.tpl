@@ -1,7 +1,6 @@
 {{- if .Values.global.persistence.enabled }}
 - name: s3-init
   image: {{ include "sam.images.image" (dict "root" . "image" .Values.samDeployment.s3Init.image) | quote }}
-  imagePullPolicy: {{ .Values.samDeployment.s3Init.image.pullPolicy | default "IfNotPresent" }}
   securityContext:
     {{- include "sam.security.containerContext" (dict "override" dict) | nindent 4 }}
   volumeMounts:

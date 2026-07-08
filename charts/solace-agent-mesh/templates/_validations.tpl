@@ -27,22 +27,6 @@ Consumer: include once near the top of a template that always renders (deploymen
 {{- if and $key (gt (len .Values.global.imagePullSecrets) 0) -}}
 {{- fail "global.imagePullKey and global.imagePullSecrets are mutually exclusive. Use imagePullKey to let the chart manage the pull secret, or imagePullSecrets to reference a pre-created one — not both." -}}
 {{- end -}}
-{{- /* Go mode: the ca-merge init container's image is resolved as
-       caInitImage.repository OR (fallback) gwe.image.repository. If both are
-       blank, the rendered initContainer image is unnamed and the deploy fails
-       at pull time with no actionable error. Catch this early when customCA
-       is enabled. */ -}}
-{{- if and (eq (.Values.sam.platform | default "python") "go") .Values.samDeployment.customCA.enabled -}}
-{{- if and (empty .Values.samDeployment.caInitImage.repository) (empty .Values.samDeployment.gwe.image.repository) -}}
-{{- fail "samDeployment.customCA.enabled is true but neither samDeployment.caInitImage.repository nor samDeployment.gwe.image.repository is set. The ca-merge init container needs an image; set one of these." -}}
-{{- end -}}
-{{- end -}}
-{{- /* Shared volumes feature: when enabled, an existing RWX PVC must be named.
-       Without it the rendered volume references an empty claimName and the pods
-       wedge in ContainerCreating with a "persistentvolumeclaim not found" event. */ -}}
-{{- if and .Values.volumes.enabled (empty (.Values.volumes.existingClaim | trim)) -}}
-{{- fail "volumes.enabled is true but volumes.existingClaim is empty. Set volumes.existingClaim to an existing RWX PVC (e.g. EFS-backed) to mount the shared volume store on the gwe/str/awe pods." -}}
-{{- end -}}
 {{- if $key -}}
 {{- $parsed := $key | fromJson -}}
 {{- if or (not (kindIs "map" $parsed)) (hasKey $parsed "Error") -}}

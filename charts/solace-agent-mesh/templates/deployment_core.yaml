@@ -1,4 +1,3 @@
-{{- if ne (.Values.sam.platform | default "python") "go" }}
 {{- include "solace-agent-mesh.validations.all" . -}}
 {{- $config := dict
   "component" "core"
@@ -69,4 +68,3 @@
   )
 -}}
 {{- include "sam.deployment" (dict "root" . "config" $config) }}
-{{- end }}

@@ -1,4 +1,4 @@
-{{- if or (not .Values.sam.communityMode) (eq (.Values.sam.platform | default "python") "go") }}
+{{- if not .Values.sam.communityMode }}
 {{ include "sam.config.metadata" (dict "root" . "name" "user-roles") }}
 data:
   user-to-role-assignments.yaml: |

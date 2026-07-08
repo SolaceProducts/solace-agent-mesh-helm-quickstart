@@ -1,6 +1,3 @@
-{{- /* ===== Platform-aware helpers — Go mode renders different access patterns ===== */ -}}
-{{- $isGo := eq (.Values.sam.platform | default "python") "go" -}}
-{{- $component := ternary "gwe" "core" $isGo -}}
 {{- /* ===== Compute config summary variables ===== */ -}}
 {{- $hasOidc := and .Values.sam.oauthProvider .Values.sam.oauthProvider.oidc .Values.sam.oauthProvider.oidc.issuer (ne .Values.sam.oauthProvider.oidc.issuer "") -}}
 {{- $showWarning := or .Values.global.broker.embedded .Values.global.persistence.enabled (not .Values.sam.authorization.enabled) (and (not .Values.ingress.enabled) (ne .Values.service.type "LoadBalancer")) -}}
@@ -54,7 +51,7 @@
 {{- if $showWarning }}
 
   This config will get you started, but it is not ready for production use.
-  See: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/
+  See: https://solacelabs.github.io/solace-agent-mesh/docs/documentation/enterprise/production-kubernetes
 {{- else }}
 
   ✅  Configured for production use.
@@ -74,7 +71,7 @@
   Console: <ALB DNS will be assigned>
     kubectl get ingress {{ include "sam.names.fullname" . }} -n {{ .Release.Namespace }}
 {{- end }}
-{{- if and (not .Values.ingress.autoConfigurePaths) (not $isGo) }}
+{{- if not .Values.ingress.autoConfigurePaths }}
 {{- $hasPlatformPath := false }}
 {{- range .Values.ingress.hosts }}
   {{- range .paths }}
@@ -100,7 +97,7 @@
 {{- else if eq .Values.service.type "LoadBalancer" }}
 
   Get external IP (Ctrl-C when assigned):
-    kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -w
+    kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -w
 {{- if .Values.service.tls.enabled }}
 
   Open https://<EXTERNAL-IP>
@@ -116,11 +113,11 @@
       NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
     fi
 {{- if .Values.service.tls.enabled }}
-    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui-tls")].nodePort}')
+    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui-tls")].nodePort}')
 
   Open https://$NODE_IP:$PORT
 {{- else }}
-    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui")].nodePort}')
+    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui")].nodePort}')
 
   Open http://$NODE_IP:$PORT
 {{- end }}
@@ -131,29 +128,15 @@
 
   Port-forward the Console UI:
 {{- if .Values.service.tls.enabled }}
-{{- if $isGo }}
-    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.names.component" (dict "root" . "component" $component) }} 8443:443
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.names.component" (dict "root" . "component" "core") }} 8443:443 4443:4443
 
   Then access the Console at:
     https://localhost:8443
 {{- else }}
-    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.names.component" (dict "root" . "component" $component) }} 8443:443 4443:4443
-
-  Then access the Console at:
-    https://localhost:8443
-{{- end }}
-{{- else }}
-{{- if $isGo }}
-    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.names.component" (dict "root" . "component" $component) }} 8080:80
-
-  Then access the Console at:
-    http://localhost:8080
-{{- else }}
-    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.names.component" (dict "root" . "component" $component) }} 8000:80 8080:8080
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sam.names.component" (dict "root" . "component" "core") }} 8000:80 8080:8080
 
   Then access the Console at:
     http://localhost:8000
-{{- end }}
 {{- end }}
 {{- end }}
 {{- if $hasOidc }}
@@ -165,11 +148,11 @@
 {{- if $callbackHost }}
 
   Ensure your OIDC callback URI is registered:
-    {{ $callbackScheme }}://{{ $callbackHost }}/api/v1/auth/callback
+    {{ $callbackScheme }}://{{ $callbackHost }}/callback
 {{- else }}
 
   Ensure your OIDC callback URI is registered:
-    {{ $callbackScheme }}://<INGRESS-HOST>/api/v1/auth/callback
+    {{ $callbackScheme }}://<INGRESS-HOST>/callback
   If the ingress host is assigned later, retrieve it with:
     kubectl get ingress -n {{ .Release.Namespace }}
 {{- end }}
@@ -177,17 +160,14 @@
 {{- $callbackScheme := ternary "https" "http" .Values.service.tls.enabled }}
 
   Ensure your OIDC callback URI is registered:
-    {{ $callbackScheme }}://{{ .Values.sam.dnsName }}/api/v1/auth/callback
+    {{ $callbackScheme }}://{{ .Values.sam.dnsName }}/callback
 {{- end }}
-{{- end }}
-{{- if not (and .Values.llmService .Values.llmService.llmServiceApiKey (ne .Values.llmService.llmServiceApiKey "")) }}
+{{- else if not (and .Values.llmService .Values.llmService.llmServiceApiKey (ne .Values.llmService.llmServiceApiKey "")) }}
 
   On first login you'll be prompted to configure your LLM API key.
 {{- end }}
 
   If something looks wrong:
-    kubectl get pods -n {{ .Release.Namespace }}
-    kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --tail 200
 {{- if .Values.ingress.enabled }}
 {{- $tsHost := include "sam.notes.ingressHost" . }}
 {{- $tsScheme := include "sam.notes.ingressScheme" . }}
@@ -201,21 +181,11 @@
 {{- end }}
 {{- else if eq .Values.service.type "ClusterIP" }}
 {{- if .Values.service.tls.enabled }}
-{{- if $isGo }}
-    curl -sk https://localhost:8443/health
-    curl -sk https://localhost:8443/api/v1/platform/health
-{{- else }}
     curl -sk https://localhost:8443/health
     curl -sk https://localhost:4443/api/v1/platform/health
-{{- end }}
-{{- else }}
-{{- if $isGo }}
-    curl -s http://localhost:8080/health
-    curl -s http://localhost:8080/api/v1/platform/health
 {{- else }}
     curl -s http://localhost:8000/health
     curl -s http://localhost:8080/api/v1/platform/health
-{{- end }}
 {{- end }}
 {{- else if eq .Values.service.type "NodePort" }}
     NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
@@ -223,13 +193,13 @@
       NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
     fi
 {{- if .Values.service.tls.enabled }}
-    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui-tls")].nodePort}')
-    PLATFORM_PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="platform-tls")].nodePort}')
+    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui-tls")].nodePort}')
+    PLATFORM_PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="platform-tls")].nodePort}')
     curl -sk https://$NODE_IP:$PORT/health
     curl -sk https://$NODE_IP:$PLATFORM_PORT/api/v1/platform/health
 {{- else }}
-    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui")].nodePort}')
-    PLATFORM_PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" $component) }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="platform")].nodePort}')
+    PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="webui")].nodePort}')
+    PLATFORM_PORT=$(kubectl get svc {{ include "sam.names.component" (dict "root" . "component" "core") }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[?(@.name=="platform")].nodePort}')
     curl -s http://$NODE_IP:$PORT/health
     curl -s http://$NODE_IP:$PLATFORM_PORT/api/v1/platform/health
 {{- end }}
@@ -243,5 +213,5 @@
 {{- end }}
 {{- end }}
 
-  Quickstart: https://solaceproducts.github.io/solace-agent-mesh-helm-quickstart/docs/
+  Quickstart: https://solacelabs.github.io/solace-agent-mesh/docs/documentation/enterprise/quickstart-kubernetes
   Docs:       https://docs.solace.com/Agentic-AI/agent-mesh.htm

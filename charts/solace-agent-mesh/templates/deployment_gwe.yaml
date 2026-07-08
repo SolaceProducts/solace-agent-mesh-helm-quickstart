@@ -1,5 +1,0 @@
-{{- if eq (.Values.sam.platform | default "python") "go" }}
-{{- include "solace-agent-mesh.validations.all" . -}}
-{{- $config := include "sam.gwe.config" . | fromYaml -}}
-{{- include "sam.deployment" (dict "root" . "config" $config) }}
-{{- end }}

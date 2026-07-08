@@ -1,6 +1,5 @@
 - name: db-init
   image: {{ include "sam.images.image" (dict "root" . "image" .Values.samDeployment.dbInit.image) | quote }}
-  imagePullPolicy: {{ .Values.samDeployment.dbInit.image.pullPolicy | default "IfNotPresent" }}
   securityContext:
     {{- include "sam.security.containerContext" (dict "override" dict) | nindent 4 }}
   volumeMounts:

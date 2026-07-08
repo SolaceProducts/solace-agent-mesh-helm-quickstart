@@ -1,4 +1,3 @@
-{{- if ne (.Values.sam.platform | default "python") "go" }}
 {{- $urls := include "sam.urls.compute" . | fromYaml }}
 {{ include "sam.config.metadata" (dict "root" . "name" "core-env") }}
 data:
@@ -80,4 +79,3 @@ data:
   {{- range $key, $value := include "sam.utils.envAsMap" .Values.environmentVariables | fromYaml }}
   {{ $key }}: {{ $value | toString | quote }}
   {{- end }}
-{{- end }}
