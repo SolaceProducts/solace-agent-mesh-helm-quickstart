@@ -2,7 +2,24 @@ apiVersion: v1
 entries:
   sam-agent:
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.805631853Z"
+    created: "2026-08-17T17:38:33.824214571Z"
+    dependencies:
+    - name: sam-common
+      repository: file://../sam-common
+      version: 1.1.0
+    description: A Helm chart for deploying Solace Agent Mesh agents and gateways
+    digest: 074d2668fb80ff27a2b16f30c14ee521e069326cc158a8770b43339fa1a8114f
+    home: https://solace.com/products/agent-mesh/
+    maintainers:
+    - email: info@solace.com
+      name: Solace
+    name: sam-agent
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.501.23.tgz
+    version: 1.501.23
+  - apiVersion: v2
+    created: "2026-08-17T17:38:33.823165041Z"
     dependencies:
     - name: sam-common
       repository: file://../sam-common
@@ -19,7 +36,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.501.18.tgz
     version: 1.501.18
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.804721645Z"
+    created: "2026-08-17T17:38:33.822101229Z"
     dependencies:
     - name: sam-common
       repository: file://../sam-common
@@ -36,7 +53,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.501.11.tgz
     version: 1.501.11
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.806491243Z"
+    created: "2026-08-17T17:38:33.825251893Z"
     dependencies:
     - name: sam-common
       repository: file://../sam-common
@@ -53,7 +70,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.501.6.tgz
     version: 1.501.6
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.802803982Z"
+    created: "2026-08-17T17:38:33.820255466Z"
     dependencies:
     - name: sam-common
       repository: file://../sam-common
@@ -70,7 +87,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.501.0.tgz
     version: 1.501.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.80170714Z"
+    created: "2026-08-17T17:38:33.818591352Z"
     dependencies:
     - name: sam-common
       repository: file://../sam-common
@@ -87,7 +104,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.500.0.tgz
     version: 1.500.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.800560257Z"
+    created: "2026-08-17T17:38:33.817396997Z"
     description: A Helm chart for deploying Solace Agent Mesh agents and gateways
     digest: 08ab8495b67846a464513b369fbafa3f1bb21e16c76bf51c5e57cf48e41ad046
     home: https://solace.com/products/agent-mesh/
@@ -100,7 +117,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.2.5.tgz
     version: 1.2.5
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.800123745Z"
+    created: "2026-08-17T17:38:33.816852067Z"
     description: A Helm chart for deploying Solace Agent Mesh agents and gateways
     digest: 87948b45d58e51b6be0d5ce8fc2d3d0423a7abab8002a00b43960a8bf7be4797
     home: https://solace.com/products/agent-mesh/
@@ -113,7 +130,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.2.4.tgz
     version: 1.2.4
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.799717201Z"
+    created: "2026-08-17T17:38:33.816283391Z"
     description: A Helm chart for deploying Solace Agent Mesh agents and gateways
     digest: d4a1807cb7acec47296db4784931f7e94468b1c90883d07c9d2c2ab89ad85d8f
     home: https://solace.com/products/agent-mesh/
@@ -126,7 +143,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.2.3.tgz
     version: 1.2.3
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.799319074Z"
+    created: "2026-08-17T17:38:33.815804109Z"
     description: A Helm chart for deploying Solace Agent Mesh agents and gateways
     digest: 1651ac4231dc1eda41119f14058b846e4a530f8bb7abbfe54b0c8d27eb26ea97
     home: https://solace.com/products/agent-mesh/
@@ -139,7 +156,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.2.2.tgz
     version: 1.2.2
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.798939325Z"
+    created: "2026-08-17T17:38:33.815214953Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Kubernetes
     digest: e22d8311218e18e161d60e2f0afeac55052b4d3ce75283002873be1e4e4525c2
     home: https://solace.com/products/agent-mesh/
@@ -152,7 +169,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/sam-agent-1.1.0.tgz
     version: 1.1.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.798574031Z"
+    created: "2026-08-17T17:38:33.814757774Z"
     description: A Helm chart for Solace Agent Mesh Custom Agents deployments in Kubernetes
     digest: f6331babf67e8a73912ad4ec0721048b5b03909549ad496e9e9ef159c54d052c
     home: https://solace.com/products/agent-mesh/
@@ -166,9 +183,9 @@ entries:
     version: 1.0.0
   sam-common:
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.806798381Z"
+    created: "2026-08-17T17:38:33.825658087Z"
     description: Shared library chart for Solace Agent Mesh Helm charts
-    digest: d6da2c6e3cd55c4e94c90b24d7dab7dcd9d9cf807c3f793b3ff2bfda89fbecac
+    digest: 61e5acb4a5fcec00dc60b46f85e943ed42b37f3cf92cf68b7218893069dc65d1
     home: https://solace.com/products/agent-mesh/
     maintainers:
     - email: info@solace.com
@@ -180,7 +197,28 @@ entries:
     version: 1.1.0
   solace-agent-mesh:
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.844993312Z"
+    created: "2026-08-17T17:38:33.881389773Z"
+    dependencies:
+    - name: sam-common
+      repository: file:./charts
+      version: 1.1.0
+    - condition: global.persistence.enabled
+      name: persistence-layer
+      repository: file:./charts
+      version: 1.10.0
+    description: A Helm chart for Solace Agent Mesh deployments in Kubernetes
+    digest: a0938ba73ad67c8e5def0dea05d9e72846b8adc539f8d71c072457e95006713c
+    home: https://solace.com/products/agent-mesh/
+    maintainers:
+    - email: info@solace.com
+      name: Solace
+    name: solace-agent-mesh
+    type: application
+    urls:
+    - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.501.23.tgz
+    version: 1.501.23
+  - apiVersion: v2
+    created: "2026-08-17T17:38:33.870816756Z"
     dependencies:
     - name: sam-common
       repository: file:./charts
@@ -201,7 +239,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.501.18.tgz
     version: 1.501.18
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.838352284Z"
+    created: "2026-08-17T17:38:33.862436839Z"
     dependencies:
     - name: sam-common
       repository: file:./charts
@@ -222,7 +260,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.501.11.tgz
     version: 1.501.11
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.848715081Z"
+    created: "2026-08-17T17:38:33.885833499Z"
     dependencies:
     - name: sam-common
       repository: file:./charts
@@ -243,7 +281,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.501.6.tgz
     version: 1.501.6
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.831828691Z"
+    created: "2026-08-17T17:38:33.855391266Z"
     dependencies:
     - name: sam-common
       repository: file:./charts
@@ -264,7 +302,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.501.0.tgz
     version: 1.501.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.828984124Z"
+    created: "2026-08-17T17:38:33.851784824Z"
     dependencies:
     - name: sam-common
       repository: file:./charts
@@ -285,7 +323,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.500.0.tgz
     version: 1.500.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.825411463Z"
+    created: "2026-08-17T17:38:33.848662944Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -303,7 +341,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.7.tgz
     version: 1.2.7
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.823206971Z"
+    created: "2026-08-17T17:38:33.845573341Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -321,7 +359,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.6.tgz
     version: 1.2.6
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.821576388Z"
+    created: "2026-08-17T17:38:33.843384307Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -339,7 +377,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.5.tgz
     version: 1.2.5
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.819885863Z"
+    created: "2026-08-17T17:38:33.841407478Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -357,7 +395,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.4.tgz
     version: 1.2.4
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.817275797Z"
+    created: "2026-08-17T17:38:33.83938396Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -375,7 +413,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.3.tgz
     version: 1.2.3
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.815499581Z"
+    created: "2026-08-17T17:38:33.835944277Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -393,7 +431,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.1.tgz
     version: 1.2.1
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.813796923Z"
+    created: "2026-08-17T17:38:33.833950403Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -411,7 +449,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.2.0.tgz
     version: 1.2.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.812268973Z"
+    created: "2026-08-17T17:38:33.832238398Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -429,7 +467,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.1.1.tgz
     version: 1.1.1
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.809434694Z"
+    created: "2026-08-17T17:38:33.830465303Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -447,7 +485,7 @@ entries:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/solace-agent-mesh-1.1.0.tgz
     version: 1.1.0
   - apiVersion: v2
-    created: "2026-07-08T16:12:21.80811553Z"
+    created: "2026-08-17T17:38:33.827378474Z"
     dependencies:
     - condition: global.persistence.enabled
       name: persistence-layer
@@ -467,16 +505,16 @@ entries:
   test-sam-common:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-07-08T16:12:21.849415704Z"
+    created: "2026-08-17T17:38:33.886586127Z"
     dependencies:
     - name: sam-common
       repository: file://../sam-common
       version: 1.1.0
     description: A Helm chart for Kubernetes to test sam-common
-    digest: 4bd874be5b9ca8f1b952294d87146274be5bf9e12f76364e4824e36302db6d25
+    digest: bfa855af680d81d6571d0f27a13a3c8431ed7a7c9918e68b8a0ce739fd443175
     name: test-sam-common
     type: application
     urls:
     - https://SolaceProducts.github.io/solace-agent-mesh-helm-quickstart/test-sam-common-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-08T16:12:21.797987094Z"
+generated: "2026-08-17T17:38:33.814034509Z"
