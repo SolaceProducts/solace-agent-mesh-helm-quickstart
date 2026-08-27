@@ -27,6 +27,8 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
+  noIndex: true,
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -54,6 +56,14 @@ const config: Config = {
   ],
 
   themeConfig: {
+    announcementBar: {
+      id: 'sam-v1-deprecation',
+      content:
+        '⚠️ <strong>The Solace Agent Mesh v1 Helm Quickstart is now deprecated</strong> 👋 Thanks to everyone who used this Helm Quickstart to run Solace Agent Mesh! This Python version is now <strong>deprecated</strong> — it\'s no longer under active development and won\'t receive new features, bug fixes or security updates. 🚀 For deploying the new version of <strong>Solace Agent Mesh,</strong> see the official documentation → <a href="https://docs.solace.com/Agent-Mesh/agent-mesh.htm">https://docs.solace.com/Agent-Mesh/agent-mesh.htm</a> 🖥️ A free edition of the Solace Agent Mesh desktop app is available: <a href="https://solace.com/products/agent-mesh/download/">https://solace.com/products/agent-mesh/download/</a> This repository will be archived (read-only) but stays available for reference, so your existing deployments keep working.',
+      backgroundColor: '#b71c1c',
+      textColor: '#ffffff',
+      isCloseable: false,
+    },
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
     colorMode: {
