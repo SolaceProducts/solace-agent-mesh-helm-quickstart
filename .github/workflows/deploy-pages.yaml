@@ -1,0 +1,62 @@
+# Deploy the gh-pages branch to GitHub Pages via GitHub Actions.
+#
+# Background: the release pipeline builds the Docusaurus docs site and pushes
+# the assembled content to the `gh-pages` branch. The gh-pages root serves BOTH
+# the Helm chart repository (index.yaml + *.tgz, consumed by `helm repo add`)
+# AND the documentation site (docs/, plus index.html/docs-site redirects).
+#
+# This workflow replaces the legacy "deploy from a branch" Pages pipeline with a
+# GitHub Actions deployment. It uploads the ENTIRE gh-pages tree so both the
+# Helm repo and the docs stay live.
+#
+# One-time setup (repo admin): Settings -> Pages -> Build and deployment ->
+# Source: "GitHub Actions". Then run this workflow once to deploy current
+# gh-pages.
+name: Deploy gh-pages to GitHub Pages
+
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize deploys; let an in-flight deploy finish so a partial publish is
+# never left live.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      # Disable Jekyll at the site root so Docusaurus's `_`-prefixed assets are
+      # not stripped.
+      - name: Ensure .nojekyll at root
+        run: touch .nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # Upload the entire branch (Helm repo files + docs) as the Pages artifact.
+      # Do not narrow this to docs/ — that would break `helm repo add`.
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
