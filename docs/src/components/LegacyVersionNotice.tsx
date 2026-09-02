@@ -1,10 +1,10 @@
 import React from 'react';
 import Admonition from '@theme/Admonition';
 
-// GENERATED from messages/solace-agent-mesh-helm-quickstart.md by deprecate.py (DATAGO-147013).
-// Edit the message and re-run `restage`; do not hand-edit this file. Rendered at
-// the top of every doc page via the DocItem/Content swizzle; site-wide noindex
-// stays set in docusaurus.config.ts.
+// SAM v1 deprecation notice (DATAGO-147013). sam-kubernetes is the docs source (it builds
+// the gh-pages site and syncs docs/ to solace-agent-mesh-helm-quickstart). Content mirrors
+// the deprecation tool's helm-quickstart banner. Rendered atop every doc page via the
+// DocItem/Content swizzle; site-wide noindex is set in docusaurus.config.ts.
 
 export default function LegacyVersionNotice(): JSX.Element {
   return (

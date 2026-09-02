@@ -84,7 +84,7 @@ imagePullSecrets:
 
 image:
   repository: solace-agent-mesh-enterprise
-  tag: "1.568.0"                        # bump to match your SAM control plane version
+  tag: "1.569.0"                        # bump to match your SAM control plane version
   pullPolicy: IfNotPresent
 
 # Deployment Strategy

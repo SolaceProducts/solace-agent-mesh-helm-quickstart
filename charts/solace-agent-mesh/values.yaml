@@ -393,7 +393,7 @@ samDeployment:
   image:
     registry: ""                              # Overrides global.imageRegistry for this image only
     repository: solace-agent-mesh-enterprise
-    tag: "1.568.0"
+    tag: "1.569.0"
     digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
     pullPolicy: IfNotPresent
 
@@ -405,7 +405,7 @@ samDeployment:
       tag: "1.8.2"
       digest: ""                                # When set, takes precedence over tag (e.g. sha256:abc...)
       pullPolicy: IfNotPresent
-    version: "k8s-1.501.23"
+    version: "k8s-1.501.24"
     chartVersion: "1.501.0"
 
     # In-cluster API host for the deployer's helm client. Only applied when
